@@ -1,0 +1,33 @@
+:root {
+  color-scheme: light;
+}
+
+:root.dark {
+  color-scheme: dark;
+  background-color: #1d1e1f;
+}
+
+body {
+  margin: 0;
+  font-family: 'Inter', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+  background-color: var(--el-bg-color);
+  color: var(--el-text-color-primary);
+  transition: background-color 0.3s ease;
+}
+
+#app {
+  height: 100vh;
+}
+
+.el-container {
+  min-height: 100%;
+}
+
+.el-menu-item.is-active {
+  background-color: var(--el-color-primary-light-9);
+}
+
+:root.dark body {
+  background-color: #1d1e1f;
+  color: var(--el-text-color-primary);
+}
