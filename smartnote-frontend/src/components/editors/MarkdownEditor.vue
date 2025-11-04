@@ -11,15 +11,18 @@
         <el-button size="small" @click="insertCodeBlock" title="代码块">{ }</el-button>
         <el-button size="small" @click="insertLink" title="链接">🔗</el-button>
       </el-button-group>
+      <el-button size="small" text @click="togglePreview">
+        {{ previewButtonLabel }}
+      </el-button>
     </div>
-    <div class="editor-body">
+    <div class="editor-body" :class="{ 'preview-hidden': !showPreview }">
       <textarea
         ref="textareaRef"
         v-model="localValue"
         class="textarea"
         :placeholder="placeholder"
       />
-      <div class="preview" v-html="rendered" />
+      <div v-if="showPreview" class="preview" v-html="rendered" />
     </div>
   </div>
 </template>
@@ -43,6 +46,13 @@ const md = new MarkdownIt({
 
 const localValue = ref(props.modelValue)
 const textareaRef = ref(null)
+const showPreview = ref(true)
+
+const previewButtonLabel = computed(() => (showPreview.value ? '收起预览' : '展开预览'))
+
+const togglePreview = () => {
+  showPreview.value = !showPreview.value
+}
 
 watch(
   () => props.modelValue,
@@ -124,6 +134,10 @@ const insertLink = () => {
   grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
   gap: 16px;
   height: 100%;
+}
+
+.editor-body.preview-hidden {
+  grid-template-columns: 1fr;
 }
 
 .textarea {

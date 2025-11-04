@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia'
 import { getWorkspaces, createWorkspace, deleteWorkspace } from '../api/workspace'
 import { ElMessage } from 'element-plus'
+import { ensureArray } from '../utils/response'
 
 export const useWorkspaceStore = defineStore('workspace', {
   state: () => ({
@@ -12,7 +13,7 @@ export const useWorkspaceStore = defineStore('workspace', {
     async loadWorkspaces() {
       this.loading = true
       try {
-        this.workspaces = await getWorkspaces()
+        this.workspaces = ensureArray(await getWorkspaces())
       } finally {
         this.loading = false
       }
