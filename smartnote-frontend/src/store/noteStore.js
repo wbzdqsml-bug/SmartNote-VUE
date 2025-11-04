@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia'
 import { getNotes, createNote, updateNote, deleteNote } from '../api/note'
 import { ElMessage } from 'element-plus'
+import { ensureArray, extractId } from '../utils/response'
 
 export const useNoteStore = defineStore('note', {
   state: () => ({
@@ -12,14 +13,15 @@ export const useNoteStore = defineStore('note', {
     async loadNotes() {
       this.loading = true
       try {
-        this.notes = await getNotes()
+        this.notes = ensureArray(await getNotes())
       } finally {
         this.loading = false
       }
     },
 
     async addNote(payload) {
-      const id = await createNote(payload)
+      const response = await createNote(payload)
+      const id = extractId(response)
       await this.loadNotes()
       ElMessage.success('笔记已创建')
       return id

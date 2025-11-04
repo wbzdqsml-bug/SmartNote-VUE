@@ -27,7 +27,7 @@
       <span>回收站</span>
     </el-menu-item>
 
-    <el-menu-item @click="logout">
+    <el-menu-item index="logout" @click="logout">
       <el-icon><SwitchButton /></el-icon>
       <span>退出</span>
     </el-menu-item>

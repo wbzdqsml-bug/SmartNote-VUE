@@ -32,6 +32,7 @@
 import { computed } from 'vue'
 import dayjs from 'dayjs'
 import { Clock } from '@element-plus/icons-vue'
+import { getNoteTypeLabel, getNoteTypeTag } from '../constants/note'
 
 const props = defineProps({
   note: { type: Object, required: true }
@@ -39,14 +40,8 @@ const props = defineProps({
 
 const emit = defineEmits(['open', 'remove'])
 
-const typeMeta = {
-  0: { label: 'Markdown', tag: 'primary' },
-  1: { label: '富文本', tag: 'success' },
-  2: { label: '画板', tag: 'warning' }
-}
-
-const typeLabel = computed(() => typeMeta[props.note?.type]?.label || '')
-const typeTag = computed(() => typeMeta[props.note?.type]?.tag || 'info')
+const typeLabel = computed(() => getNoteTypeLabel(props.note?.type))
+const typeTag = computed(() => getNoteTypeTag(props.note?.type))
 
 const formattedUpdate = computed(() =>
   props.note?.lastUpdateTime

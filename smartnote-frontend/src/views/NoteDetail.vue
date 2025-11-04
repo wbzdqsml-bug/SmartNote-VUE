@@ -19,6 +19,7 @@
           class="type-select"
           size="small"
           placeholder="选择笔记类型"
+          :disabled="typeSelectDisabled"
           @change="markDirty"
         >
           <el-option
@@ -32,6 +33,7 @@
 
       <div class="note-info">
         <el-space wrap>
+          <el-tag v-if="typeLabel" size="small" :type="typeTag">{{ typeLabel }}</el-tag>
           <el-tag v-if="note.workspaceName" size="small" type="success">{{ note.workspaceName }}</el-tag>
           <el-tag v-if="formattedUpdatedAt" size="small" type="info" effect="plain">
             最后更新：{{ formattedUpdatedAt }}
@@ -74,18 +76,13 @@ import { getNote, updateNote } from '../api/note'
 import MarkdownEditor from '../components/editors/MarkdownEditor.vue'
 import RichTextEditor from '../components/editors/RichTextEditor.vue'
 import SketchPad from '../components/editors/SketchPad.vue'
-
-const NOTE_TYPE = {
-  MARKDOWN: 0,
-  RICH_TEXT: 1,
-  SKETCH: 2
-}
-
-const typeOptions = [
-  { label: 'Markdown 笔记', value: NOTE_TYPE.MARKDOWN },
-  { label: '富文本笔记', value: NOTE_TYPE.RICH_TEXT },
-  { label: '手写画板', value: NOTE_TYPE.SKETCH }
-]
+import {
+  NOTE_TYPE,
+  NOTE_TYPE_OPTIONS,
+  getNoteTypeLabel,
+  getNoteTypeTag
+} from '../constants/note'
+import { extractData } from '../utils/response'
 
 const createEmptyNote = () => ({
   id: '',
@@ -96,20 +93,39 @@ const createEmptyNote = () => ({
   contentSketch: '',
   workspaceId: null,
   workspaceName: '',
-  lastUpdateTime: null
+  lastUpdateTime: null,
+  originalType: NOTE_TYPE.MARKDOWN
 })
 
 const route = useRoute()
 const router = useRouter()
 
 const note = reactive(createEmptyNote())
+const originalType = ref(NOTE_TYPE.MARKDOWN)
 const loading = ref(false)
 const saving = ref(false)
 const dirty = ref(false)
 const initializing = ref(false)
 
+const typeOptions = computed(() => {
+  if (!note.id) return NOTE_TYPE_OPTIONS
+  if (originalType.value === NOTE_TYPE.SKETCH) {
+    return NOTE_TYPE_OPTIONS.filter(option => option.value === NOTE_TYPE.SKETCH)
+  }
+  if ([NOTE_TYPE.MARKDOWN, NOTE_TYPE.RICH_TEXT].includes(originalType.value)) {
+    return NOTE_TYPE_OPTIONS.filter(option => option.value !== NOTE_TYPE.SKETCH)
+  }
+  return NOTE_TYPE_OPTIONS
+})
+
 const formattedUpdatedAt = computed(() =>
   note.lastUpdateTime ? dayjs(note.lastUpdateTime).format('YYYY-MM-DD HH:mm:ss') : ''
+)
+
+const typeLabel = computed(() => getNoteTypeLabel(note.type))
+const typeTag = computed(() => getNoteTypeTag(note.type))
+const typeSelectDisabled = computed(
+  () => !!note.id && typeOptions.value.length <= 1
 )
 
 const markDirty = () => {
@@ -164,12 +180,14 @@ const loadNote = async id => {
   loading.value = true
   initializing.value = true
   try {
-    const data = await getNote(id)
+    const data = extractData(await getNote(id))
     const normalized = {
       ...createEmptyNote(),
       ...(data || {})
     }
     normalized.type = Number(normalized.type ?? NOTE_TYPE.MARKDOWN)
+    normalized.originalType = normalized.type
+    originalType.value = normalized.type
     Object.assign(note, normalized)
   } catch (error) {
     console.error('加载笔记失败', error)
