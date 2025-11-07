@@ -174,6 +174,8 @@ const settingsSection = ref(null)
 
 const notifications = ref([])
 
+const isUnauthorized = (error) => error?.response?.status === 401
+
 const sectionMap = {
   notes: notesSection,
   analysis: analysisSection,
@@ -267,7 +269,11 @@ const loadNotes = async (focusId = null) => {
     }
   } catch (error) {
     console.error('[Home] loadNotes error:', error)
-    message.error(error?.response?.data?.message || '获取笔记列表失败，请稍后重试。')
+    if (isUnauthorized(error)) {
+      message.error(error?.response?.data?.message || '当前账号没有权限查看笔记列表。')
+    } else {
+      message.error(error?.response?.data?.message || '获取笔记列表失败，请稍后重试。')
+    }
   } finally {
     notesLoading.value = false
   }
@@ -291,7 +297,11 @@ const loadWorkspaceOptions = async () => {
     }
   } catch (error) {
     console.error('[Home] loadWorkspaceOptions error:', error)
-    message.error(error?.response?.data?.message || '获取工作区信息失败，请稍后重试。')
+    if (isUnauthorized(error)) {
+      message.error(error?.response?.data?.message || '当前账号没有权限查看工作区信息。')
+    } else {
+      message.error(error?.response?.data?.message || '获取工作区信息失败，请稍后重试。')
+    }
   } finally {
     workspaceLoading.value = false
   }
@@ -340,9 +350,7 @@ const submitCreate = async () => {
   } catch (error) {
     console.error('[Home] submitCreate error:', error)
     if (error?.response?.status === 401) {
-      message.error('登录状态已失效，请重新登录。')
-      userStore.logout()
-      router.push('/login')
+      message.error(error?.response?.data?.message || '当前账号没有权限创建该笔记。')
       return
     }
     message.error(error?.response?.data?.message || '新建笔记失败，请稍后重试。')
@@ -376,9 +384,7 @@ const handleUpdateNote = async ({ id, payload }) => {
   } catch (error) {
     console.error('[Home] handleUpdateNote error:', error)
     if (error?.response?.status === 401) {
-      message.error('登录状态已失效，请重新登录。')
-      userStore.logout()
-      router.push('/login')
+      message.error(error?.response?.data?.message || '当前账号没有权限执行此操作。')
       return
     }
     message.error(error?.response?.data?.message || '保存失败，请稍后重试。')
@@ -541,6 +547,4 @@ onMounted(async () => {
   }
 }
 </style>
-
-
 

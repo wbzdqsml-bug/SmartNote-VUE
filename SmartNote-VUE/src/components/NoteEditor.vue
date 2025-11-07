@@ -16,20 +16,15 @@
         </div>
       </div>
 
-      <component
-        :is="currentEditor"
-        v-model="localNote.content"
-        class="dynamic-editor"
-      />
+      <div class="meta-row">
+        <span>创建时间：{{ formatTime(note.createdAt || note.createTime) }}</span>
+        <span>最近更新：{{ formatTime(note.updateTime || note.lastUpdateTime) }}</span>
+      </div>
+
+      <component :is="currentEditor" v-model="localNote.content" class="dynamic-editor" />
 
       <div class="footer">
-        <div class="meta">
-          <span>创建时间：{{ formatTime(note.createdAt || note.createTime) }}</span>
-          <span>最近更新：{{ formatTime(note.updateTime || note.lastUpdateTime) }}</span>
-        </div>
-        <n-button tertiary type="error" @click="emit('soft-delete', note.id)">
-          移入回收站
-        </n-button>
+        <n-button tertiary type="error" @click="emit('soft-delete', note.id)">移入回收站</n-button>
       </div>
     </template>
     <template v-else>
@@ -153,19 +148,23 @@ const formatTime = (value) => {
   min-height: 360px;
 }
 
-.footer {
+.meta-row {
   display: flex;
-  justify-content: space-between;
-  align-items: center;
+  flex-wrap: wrap;
+  gap: 16px;
   color: #6b7280;
   font-size: 12px;
+  margin: -6px 0 8px;
+}
+
+.footer {
+  display: flex;
+  justify-content: flex-end;
   margin-top: auto;
   padding-top: 12px;
 }
 
-.meta {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
+.footer :deep(.n-button) {
+  min-width: 120px;
 }
 </style>

@@ -273,6 +273,35 @@ watch(
   align-items: center;
 }
 
+.toolbar-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.color-control {
+  display: inline-flex;
+}
+
+:deep(.n-color-picker-trigger) {
+  width: 34px;
+  height: 34px;
+  border-radius: 8px;
+  border: 1px solid rgba(15, 23, 42, 0.1);
+  background: #f8fafc;
+  cursor: pointer;
+}
+
+:deep(.n-color-picker-trigger__fill),
+:deep(.n-color-picker-checkboard) {
+  border-radius: 6px;
+}
+
+:deep(.n-color-picker-trigger__value) {
+  display: none !important;
+}
+
 .board-wrapper {
   flex: 0 0 420px;
   min-height: 420px;

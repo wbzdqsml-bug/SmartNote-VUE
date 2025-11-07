@@ -12,51 +12,55 @@
       </div>
     </template>
 
-    <n-spin :show="loading">
-      <n-empty v-if="!notes.length" description="暂无笔记" />
-      <n-scrollbar v-else class="scroll" x-scrollable>
-        <div class="card-strip">
-          <n-card
-            v-for="note in filteredNotes"
-            :key="note.id"
-            :class="['note-card', { active: note.id === selectedId }]"
-            hoverable
-            @click="$emit('select', note)"
-          >
-            <template #header>
-              <div class="card-header">
-                <n-ellipsis style="max-width: 220px">{{ note.title || '未命名笔记' }}</n-ellipsis>
-                <n-tag size="small" round type="success">
-                  {{ note.typeName || typeName(note.type) }}
-                </n-tag>
-              </div>
-            </template>
-            <template #default>
-              <p class="preview">
-                {{ renderPreview(note) }}
-              </p>
-            </template>
-            <template #footer>
-              <div class="card-footer">
-                <span>{{ formatTime(note.updateTime || note.createdAt) }}</span>
-                <n-popconfirm
-                  positive-text="确认"
-                  negative-text="取消"
-                  @positive-click="$emit('soft-delete', note.id)"
-                >
-                  <template #trigger>
-                    <n-button size="tiny" tertiary type="error">
-                      移入回收站
-                    </n-button>
-                  </template>
-                  确认将该笔记移入回收站？
-                </n-popconfirm>
-              </div>
-            </template>
-          </n-card>
+    <div class="list-body">
+      <n-spin :show="loading">
+        <n-empty v-if="!notes.length" description="暂无笔记" />
+        <div v-else class="scroll-area">
+          <div class="card-column">
+            <n-card
+              v-for="note in filteredNotes"
+              :key="note.id"
+              :class="['note-card', { active: note.id === selectedId }]"
+              hoverable
+              @click="$emit('select', note)"
+            >
+              <template #header>
+                <div class="card-header">
+                  <n-ellipsis>{{ note.title || '未命名笔记' }}</n-ellipsis>
+                  <n-tag size="small" round type="success">
+                    {{ note.typeName || typeName(note.type) }}
+                  </n-tag>
+                </div>
+              </template>
+
+              <template #default>
+                <p class="preview">
+                  {{ renderPreview(note) }}
+                </p>
+              </template>
+
+              <template #footer>
+                <div class="card-footer">
+                  <span>{{ formatTime(note.updateTime || note.createdAt) }}</span>
+                  <n-popconfirm
+                    positive-text="确认"
+                    negative-text="取消"
+                    @positive-click="$emit('soft-delete', note.id)"
+                  >
+                    <template #trigger>
+                      <n-button size="tiny" tertiary type="error">
+                        移入回收站
+                      </n-button>
+                    </template>
+                    确认将该笔记移入回收站？
+                  </n-popconfirm>
+                </div>
+              </template>
+            </n-card>
+          </div>
         </div>
-      </n-scrollbar>
-    </n-spin>
+      </n-spin>
+    </div>
   </n-card>
 </template>
 
@@ -70,8 +74,7 @@ import {
   NSpace,
   NEmpty,
   NPopconfirm,
-  NEllipsis,
-  NScrollbar
+  NEllipsis
 } from 'naive-ui'
 import { format } from 'date-fns'
 import { noteTypeMap } from '@/constants/noteTypes'
@@ -136,6 +139,17 @@ const renderPreview = (note) => {
   border-radius: 22px;
   box-shadow: 0 18px 44px rgba(15, 23, 42, 0.12);
   background: #fff;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
+}
+
+:deep(.n-card__content) {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
 }
 
 .header {
@@ -157,24 +171,47 @@ const renderPreview = (note) => {
   font-size: 12px;
 }
 
-.scroll {
-  overflow-x: auto;
-  overflow-y: hidden;
-  padding: 8px 8px 12px;
+.list-body {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
 }
 
-.card-strip {
+/* ✅ 让内部可滚动，外部固定高度 */
+.scroll-area {
+  flex: 1;
+  overflow-y: auto;
+  max-height: 480px; /* 固定高度，内部滚动 */
+  padding-right: 8px;
+  scrollbar-gutter: stable;
+}
+
+.scroll-area::-webkit-scrollbar {
+  width: 8px;
+}
+
+.scroll-area::-webkit-scrollbar-thumb {
+  background: rgba(100, 116, 139, 0.3);
+  border-radius: 4px;
+}
+
+.scroll-area::-webkit-scrollbar-thumb:hover {
+  background: rgba(100, 116, 139, 0.5);
+}
+
+.card-column {
   display: flex;
-  gap: 16px;
-  padding: 0 4px;
+  flex-direction: column;
+  gap: 12px;
 }
 
 .note-card {
   border-radius: 16px;
   transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
   cursor: pointer;
-  width: 260px;
-  flex: 0 0 260px;
+  width: 100%;
+  box-sizing: border-box;
 }
 
 .note-card.active {
@@ -208,5 +245,3 @@ const renderPreview = (note) => {
   font-size: 12px;
 }
 </style>
-
-

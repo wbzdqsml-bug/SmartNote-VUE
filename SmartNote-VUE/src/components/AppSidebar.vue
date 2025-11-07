@@ -2,7 +2,7 @@
   <n-layout-sider
     bordered
     :width="240"
-    :collapsed-width="80"
+    :collapsed-width="0"
     collapse-mode="width"
     show-trigger
     class="sidebar"
@@ -30,13 +30,7 @@
       </template>
     </n-input>
 
-    <n-menu
-      :value="active"
-      :options="menuOptions"
-      :collapsed="collapsed"
-      class="menu"
-      @update:value="handleSelect"
-    />
+    <n-menu :value="active" :options="menuOptions" class="menu" @update:value="handleSelect" />
 
     <div class="footer">
       <div class="user">
@@ -75,10 +69,6 @@ const props = defineProps({
   active: {
     type: String,
     default: 'notes'
-  },
-  collapsed: {
-    type: Boolean,
-    default: false
   },
   profile: {
     type: Object,

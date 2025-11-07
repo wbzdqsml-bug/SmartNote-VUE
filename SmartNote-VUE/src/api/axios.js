@@ -12,6 +12,38 @@ const safeMessage = (type, text) => {
   messageApi?.[type]?.(text)
 }
 
+const shouldForceReauth = (response, config) => {
+  if (!response) return false
+  const data = response.data || {}
+  const code = String(data?.code || data?.errorCode || '').toUpperCase()
+  const forceCodes = ['AUTH_EXPIRED', 'TOKEN_EXPIRED', 'UNAUTHENTICATED', 'LOGIN_REQUIRED', 'INVALID_TOKEN']
+  const permissionCodes = ['FORBIDDEN', 'PERMISSION_DENIED', 'NO_PERMISSION', 'WORKSPACE_DENIED']
+  if (code) {
+    if (permissionCodes.includes(code)) return false
+    if (forceCodes.includes(code)) return true
+  }
+
+  const messageRaw = data?.message || data?.error || ''
+  const message = String(messageRaw).toLowerCase()
+  const mentionsPermission =
+    message.includes('权限') || message.includes('permission') || message.includes('forbidden')
+  if (mentionsPermission) {
+    return false
+  }
+  if (message.includes('登录') || message.includes('login') || message.includes('token')) {
+    return true
+  }
+  if (config?.url && config.url.includes('/auth/')) {
+    return true
+  }
+  const wwwAuth = String(response.headers?.['www-authenticate'] || response.headers?.['WWW-Authenticate'] || '')
+  if (wwwAuth.toLowerCase().includes('invalid_token')) {
+    return true
+  }
+  // 默认视为登录状态失效，除非明确说明为权限问题
+  return true
+}
+
 const instance = axios.create({
   baseURL: BASE_URL,
   timeout: 10000,
@@ -49,9 +81,13 @@ instance.interceptors.response.use(
           safeMessage('error', apiMessage || '请求参数无效，请检查后重试。')
           break
         case 401:
-          safeMessage('warning', '登录状态已失效，请重新登录。')
-          localStorage.removeItem('token')
-          window.location.href = '/login'
+          if (shouldForceReauth(response, config)) {
+            safeMessage('warning', '登录状态已失效，请重新登录。')
+            localStorage.removeItem('token')
+            window.location.href = '/login'
+          } else {
+            safeMessage('error', apiMessage || '当前操作没有权限。')
+          }
           break
         case 404:
           safeMessage('warning', apiMessage || '接口未找到，请联系管理员处理。')

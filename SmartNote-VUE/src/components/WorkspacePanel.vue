@@ -260,6 +260,13 @@ const permissionForm = reactive({
   canShare: false
 })
 
+const isUnauthorized = (error) => error?.response?.status === 401
+const handleUnauthorized = (error, fallbackMessage) => {
+  if (!isUnauthorized(error)) return false
+  message.error(error?.response?.data?.message || fallbackMessage || '当前账号没有权限执行此操作。')
+  return true
+}
+
 const resolveResponse = (response, fallback = []) => {
   if (!response) return fallback
   const data = response.data ?? fallback
@@ -304,7 +311,13 @@ const loadWorkspaces = async () => {
     await loadWorkspaceDetail(activeWorkspaceId.value)
   } catch (error) {
     console.error('[WorkspacePanel] loadWorkspaces error:', error)
-    message.error(error?.response?.data?.message || '获取工作区失败，请稍后重试。')
+    if (handleUnauthorized(error, '当前账号没有权限查看工作区。')) {
+      workspaces.value = []
+      workspaceDetail.value = null
+      members.value = []
+    } else {
+      message.error(error?.response?.data?.message || '获取工作区失败，请稍后重试。')
+    }
   } finally {
     workspaceLoading.value = false
   }
@@ -353,7 +366,12 @@ const loadWorkspaceDetail = async (workspaceId) => {
       : []
   } catch (error) {
     console.error('[WorkspacePanel] loadWorkspaceDetail error:', error)
-    message.error(error?.response?.data?.message || '获取工作区详情失败。')
+    if (handleUnauthorized(error, '当前账号没有权限查看该工作区详情。')) {
+      workspaceDetail.value = null
+      members.value = []
+    } else {
+      message.error(error?.response?.data?.message || '获取工作区详情失败。')
+    }
   } finally {
     memberLoading.value = false
   }
@@ -414,7 +432,11 @@ const loadInvitations = async () => {
       : []
   } catch (error) {
     console.error('[WorkspacePanel] loadInvitations error:', error)
-    message.error(error?.response?.data?.message || '获取邀请信息失败。')
+    if (handleUnauthorized(error, '当前账号没有权限查看邀请信息。')) {
+      invitations.value = []
+    } else {
+      message.error(error?.response?.data?.message || '获取邀请信息失败。')
+    }
   } finally {
     invitationLoading.value = false
   }
@@ -841,8 +863,6 @@ onMounted(() => {
   color: #475569;
 }
 </style>
-
-
 
 
 
