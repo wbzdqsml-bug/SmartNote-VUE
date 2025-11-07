@@ -15,9 +15,7 @@
         :title="headerTitle"
         :subtitle="headerSubtitle"
         :notifications="notifications"
-        :dark="uiStore.isDark"
         @refresh="refreshAll"
-        @toggle-theme="toggleTheme"
       />
       <div class="main-scroll">
         <section ref="notesSection" class="section" id="notes">
@@ -138,13 +136,11 @@ import noteApi from '@/api/note'
 import workspaceApi from '@/api/workspace'
 import { noteTypeOptions, noteTypeMap, defaultContentByType } from '@/constants/noteTypes'
 import { useUserStore } from '@/store/userStore'
-import { useUiStore } from '@/store/uiStore'
 
 const router = useRouter()
 const message = useMessage()
 const dialog = useDialog()
 const userStore = useUserStore()
-const uiStore = useUiStore()
 
 const activeSection = ref('notes')
 const keyword = ref('')
@@ -436,10 +432,6 @@ const refreshAll = () => {
   loadNotes(selectedNoteId.value)
 }
 
-const toggleTheme = () => {
-  uiStore.toggleTheme()
-}
-
 const handleImport = () => {
   message.info('导入功能开发中，敬请期待。')
 }
@@ -547,4 +539,3 @@ onMounted(async () => {
   }
 }
 </style>
-

@@ -25,23 +25,34 @@ const shouldForceReauth = (response, config) => {
 
   const messageRaw = data?.message || data?.error || ''
   const message = String(messageRaw).toLowerCase()
-  const mentionsPermission =
-    message.includes('权限') || message.includes('permission') || message.includes('forbidden')
-  if (mentionsPermission) {
+  if (
+    message.includes('权限') ||
+    message.includes('permission') ||
+    message.includes('forbidden')
+  ) {
     return false
   }
-  if (message.includes('登录') || message.includes('login') || message.includes('token')) {
+
+  if (
+    message.includes('登录') ||
+    message.includes('login') ||
+    message.includes('token')
+  ) {
     return true
   }
+
   if (config?.url && config.url.includes('/auth/')) {
     return true
   }
-  const wwwAuth = String(response.headers?.['www-authenticate'] || response.headers?.['WWW-Authenticate'] || '')
+
+  const wwwAuth = String(
+    response.headers?.['www-authenticate'] || response.headers?.['WWW-Authenticate'] || ''
+  )
   if (wwwAuth.toLowerCase().includes('invalid_token')) {
     return true
   }
-  // 默认视为登录状态失效，除非明确说明为权限问题
-  return true
+
+  return false
 }
 
 const instance = axios.create({

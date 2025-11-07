@@ -16,17 +16,20 @@
         </div>
       </div>
 
+      <!-- ✅ 元信息行，增加上下间距 -->
       <div class="meta-row">
         <span>创建时间：{{ formatTime(note.createdAt || note.createTime) }}</span>
         <span>最近更新：{{ formatTime(note.updateTime || note.lastUpdateTime) }}</span>
       </div>
 
+      <!-- ✅ 编辑器主体区 -->
       <component :is="currentEditor" v-model="localNote.content" class="dynamic-editor" />
 
       <div class="footer">
         <n-button tertiary type="error" @click="emit('soft-delete', note.id)">移入回收站</n-button>
       </div>
     </template>
+
     <template v-else>
       <n-empty description="请选择左侧的笔记" />
     </template>
@@ -118,11 +121,12 @@ const formatTime = (value) => {
   height: 100%;
   display: flex;
   flex-direction: column;
-  gap: 18px;
+  gap: 16px;
   border-radius: 22px;
   box-shadow: 0 18px 44px rgba(15, 23, 42, 0.06);
   background: #fff;
-  padding-bottom: 16px;
+  padding: 20px 24px 16px;
+  box-sizing: border-box;
 }
 
 .title-row {
@@ -143,18 +147,23 @@ const formatTime = (value) => {
   gap: 12px;
 }
 
-.dynamic-editor {
-  flex: 1;
-  min-height: 360px;
-}
-
+/* ✅ 调整 meta-row 的上下间距与字体 */
 .meta-row {
   display: flex;
   flex-wrap: wrap;
-  gap: 16px;
+  gap: 24px;
   color: #6b7280;
-  font-size: 12px;
-  margin: -6px 0 8px;
+  font-size: 13px;
+  margin: 8px 0 10px; /* 增加上下间距，防止与其他元素重叠 */
+  line-height: 1.5;
+}
+
+/* ✅ 编辑器占据剩余空间 */
+.dynamic-editor {
+  flex: 1;
+  min-height: 360px;
+  overflow: auto;
+  padding: 8px 0;
 }
 
 .footer {

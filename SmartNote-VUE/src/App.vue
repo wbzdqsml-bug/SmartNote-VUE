@@ -1,5 +1,5 @@
 ﻿<template>
-  <n-config-provider :theme="appliedTheme">
+  <n-config-provider>
     <n-dialog-provider>
       <n-message-provider>
         <router-view />
@@ -9,13 +9,7 @@
 </template>
 
 <script setup>
-import { computed } from 'vue'
-import { NConfigProvider, NDialogProvider, NMessageProvider, darkTheme } from 'naive-ui'
-import { useUiStore } from '@/store/uiStore'
-
-const uiStore = useUiStore()
-
-const appliedTheme = computed(() => (uiStore.isDark ? darkTheme : null))
+import { NConfigProvider, NDialogProvider, NMessageProvider } from 'naive-ui'
 </script>
 
 <style>

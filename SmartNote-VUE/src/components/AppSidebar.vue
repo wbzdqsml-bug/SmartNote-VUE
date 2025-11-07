@@ -7,15 +7,18 @@
     show-trigger
     class="sidebar"
   >
+    <!-- 顶部品牌 -->
     <div class="branding">
       <div class="logo-mark">S</div>
       <div class="logo-text">SmartNote</div>
     </div>
 
+    <!-- 新建笔记按钮 -->
     <n-button type="primary" block strong size="large" @click="$emit('create-note')">
       + 新建笔记
     </n-button>
 
+    <!-- 搜索框 -->
     <n-input
       v-model:value="searchText"
       size="large"
@@ -30,13 +33,20 @@
       </template>
     </n-input>
 
-    <n-menu :value="active" :options="menuOptions" class="menu" @update:value="handleSelect" />
+    <!-- 菜单 -->
+    <div class="menu-container">
+      <n-menu
+        :value="active"
+        :options="menuOptions"
+        class="menu"
+        @update:value="handleSelect"
+      />
+    </div>
 
+    <!-- ✅ 固定底部用户信息 -->
     <div class="footer">
       <div class="user">
-        <n-avatar size="large">
-          {{ displayInitial }}
-        </n-avatar>
+        <n-avatar size="large" class="avatar">{{ displayInitial }}</n-avatar>
         <div class="meta">
           <span class="name">{{ displayName }}</span>
           <n-button text size="tiny" type="primary" @click="$emit('open-profile')">
@@ -44,7 +54,7 @@
           </n-button>
         </div>
       </div>
-      <n-button tertiary size="small" type="error" @click="$emit('logout')">
+      <n-button tertiary size="small" type="error" class="logout" @click="$emit('logout')">
         退出登录
       </n-button>
     </div>
@@ -105,49 +115,71 @@ const handleSelect = (key) => {
 
 <style scoped>
 .sidebar {
-  display: flex;
+  display: flex; /* ✅ 让整个侧边栏成为 Flex 容器 */
   flex-direction: column;
-  padding: 20px 16px;
-  background: linear-gradient(180deg, #1d2433 0%, #0f172a 100%);
-  color: rgba(255, 255, 255, 0.88);
+  justify-content: space-between; /* ✅ 顶部内容 + 底部固定 */
   height: 100%;
+  padding: 20px 16px;
+  background: #ffffff;
+  color: #333;
+  box-shadow: 2px 0 8px rgba(0, 0, 0, 0.06);
+  border-right: 1px solid #f1f1f5;
+  box-sizing: border-box;
 }
 
+/* 顶部区块 */
 .branding {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 10px;
   margin-bottom: 20px;
 }
 
 .logo-mark {
   width: 36px;
   height: 36px;
-  border-radius: 12px;
-  background: linear-gradient(135deg, #47b5ff, #7c5cff);
+  border-radius: 10px;
+  background: linear-gradient(135deg, #3b82f6, #60a5fa);
   display: grid;
   place-items: center;
   font-weight: 700;
   color: #fff;
+  font-size: 18px;
 }
 
 .logo-text {
   font-size: 18px;
   font-weight: 700;
-  letter-spacing: 0.5px;
+  color: #111827;
 }
 
 .search {
   margin: 16px 0 20px;
 }
 
-.menu {
+/* 菜单部分可滚动（防止内容溢出） */
+.menu-container {
   flex: 1;
-  background: transparent;
+  overflow-y: auto;
+  margin-bottom: 12px;
 }
 
+.menu {
+  background: transparent;
+  color: #111827;
+}
+
+.menu :deep(.n-menu-item-content--selected) {
+  background-color: rgba(59, 130, 246, 0.1);
+  border-radius: 6px;
+  color: #2563eb;
+  font-weight: 600;
+}
+
+/* ✅ 底部用户信息固定 */
 .footer {
-  margin-top: auto;
+  border-top: 1px solid #f1f1f5;
+  padding-top: 12px;
   display: flex;
   flex-direction: column;
   gap: 12px;
@@ -156,7 +188,13 @@ const handleSelect = (key) => {
 .user {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 10px;
+}
+
+.avatar {
+  background: #e5e7eb;
+  color: #111827;
+  font-weight: 600;
 }
 
 .meta {
@@ -167,5 +205,19 @@ const handleSelect = (key) => {
 
 .name {
   font-weight: 600;
+  font-size: 14px;
+  color: #111827;
+}
+
+.logout {
+  align-self: flex-start;
+  border-color: #ef4444;
+  color: #d03050;
+  transition: 0.2s ease;
+}
+
+.logout:hover {
+  background: rgba(220, 38, 38, 0.05);
+  color: #b91c1c;
 }
 </style>

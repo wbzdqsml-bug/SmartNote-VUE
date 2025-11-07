@@ -18,16 +18,6 @@
         </template>
         刷新数据
       </n-tooltip>
-      <n-tooltip placement="bottom">
-        <template #trigger>
-          <n-button text circle @click="$emit('toggle-theme')">
-            <template #icon>
-              <n-icon :component="themeIcon" />
-            </template>
-          </n-button>
-        </template>
-        切换主题
-      </n-tooltip>
       <n-popover trigger="click" placement="bottom-end">
         <template #trigger>
           <n-button quaternary round>
@@ -50,7 +40,6 @@
 </template>
 
 <script setup>
-import { computed } from 'vue'
 import {
   NBreadcrumb,
   NBreadcrumbItem,
@@ -59,12 +48,7 @@ import {
   NIcon,
   NPopover
 } from 'naive-ui'
-import {
-  RefreshOutline,
-  MoonOutline,
-  SunnyOutline,
-  NotificationsOutline
-} from '@vicons/ionicons5'
+import { RefreshOutline, NotificationsOutline } from '@vicons/ionicons5'
 
 const props = defineProps({
   title: {
@@ -78,14 +62,8 @@ const props = defineProps({
   notifications: {
     type: Array,
     default: () => []
-  },
-  dark: {
-    type: Boolean,
-    default: false
   }
 })
-
-const themeIcon = computed(() => (props.dark ? SunnyOutline : MoonOutline))
 </script>
 
 <style scoped>
