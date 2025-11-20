@@ -93,6 +93,7 @@ const menuOptions = computed(() => [
   { label: '📊 学习分析', key: 'analysis' },
   { label: '🧠 AI 助手', key: 'ai' },
   { label: '🗑 回收站', key: 'recycle' },
+  { label: '👤 个人资料', key: 'profile' },
   { label: '⚙ 协作空间', key: 'settings' }
 ])
 

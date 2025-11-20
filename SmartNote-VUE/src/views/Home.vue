@@ -419,6 +419,10 @@ const focusSection = (key) => {
 }
 
 const handleSectionChange = (key) => {
+  if (key === 'profile') {
+    router.push('/profile')
+    return
+  }
   activeSection.value = key
   focusSection(key)
 }
