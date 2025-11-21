@@ -10,6 +10,75 @@
           <n-button quaternary size="small" @click="$emit('refresh')">刷新</n-button>
         </n-space>
       </div>
+      <div class="filters">
+        <div class="filter-block">
+          <div class="filter-label">分类</div>
+          <div class="filter-content">
+            <n-tag
+              v-if="categoryValue"
+              size="small"
+              round
+              closable
+              :bordered="false"
+              @close="clearCategory"
+            >
+              {{ categoryLabel }}
+            </n-tag>
+            <span v-else class="filter-placeholder">未选择</span>
+            <n-button quaternary size="tiny" type="primary" @click="toggleCategorySelect">
+              + 添加
+            </n-button>
+          </div>
+          <n-select
+            v-if="showCategorySelect"
+            size="small"
+            v-model:value="categorySelectorValue"
+            :options="categoryOptions"
+            placeholder="选择分类"
+            style="width: 160px"
+            clearable
+            filterable
+            @update:value="handleSelectCategory"
+            @blur="showCategorySelect = false"
+          />
+        </div>
+
+        <div class="filter-block">
+          <div class="filter-label">标签</div>
+          <div class="filter-content tags">
+            <div class="filter-chips">
+              <n-tag
+                v-for="tag in selectedTagDetails"
+                :key="tag.value"
+                size="small"
+                round
+                closable
+                :bordered="false"
+                @close="removeTag(tag.value)"
+              >
+                {{ tag.label }}
+              </n-tag>
+              <span v-if="!selectedTagDetails.length" class="filter-placeholder">未选择</span>
+            </div>
+            <n-button quaternary size="tiny" type="primary" @click="toggleTagSelect">
+              + 添加
+            </n-button>
+          </div>
+          <n-select
+            v-if="showTagSelect"
+            size="small"
+            v-model:value="tagSelectorValue"
+            multiple
+            filterable
+            :options="tagOptions"
+            placeholder="选择标签"
+            style="width: 260px"
+            clearable
+            @update:value="handleSelectTags"
+            @blur="showTagSelect = false"
+          />
+        </div>
+      </div>
     </template>
 
     <div class="list-body">
@@ -37,6 +106,33 @@
                 <p class="preview">
                   {{ renderPreview(note) }}
                 </p>
+                <div class="note-meta">
+                  <div class="meta-row">
+                    <div v-if="note.categoryName" class="category-meta">
+                      <span
+                        class="category-dot"
+                        :style="{ backgroundColor: note.categoryColor || '#64748b' }"
+                      ></span>
+                      <span class="category-name">{{ note.categoryName }}</span>
+                    </div>
+                    <div class="type-chip">
+                      <n-tag size="small" round type="info">
+                        {{ note.typeName || typeName(note.type) }}
+                      </n-tag>
+                    </div>
+                  </div>
+                  <div v-if="displayTags(note).length" class="tag-chips">
+                    <n-tag
+                      v-for="tag in displayTags(note)"
+                      :key="tag.id || tag.name"
+                      size="small"
+                      round
+                    >
+                      {{ tag.name }}
+                    </n-tag>
+                  </div>
+                  <div v-else class="tag-placeholder">暂无标签</div>
+                </div>
               </template>
 
               <template #footer>
@@ -65,7 +161,7 @@
 </template>
 
 <script setup>
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
 import {
   NCard,
   NButton,
@@ -74,7 +170,8 @@ import {
   NSpace,
   NEmpty,
   NPopconfirm,
-  NEllipsis
+  NEllipsis,
+  NSelect
 } from 'naive-ui'
 import { format } from 'date-fns'
 import { noteTypeMap } from '@/constants/noteTypes'
@@ -95,10 +192,79 @@ const props = defineProps({
   keyword: {
     type: String,
     default: ''
+  },
+  categoryOptions: {
+    type: Array,
+    default: () => []
+  },
+  tagOptions: {
+    type: Array,
+    default: () => []
+  },
+  selectedCategory: {
+    type: [Number, String],
+    default: null
+  },
+  selectedTagIds: {
+    type: Array,
+    default: () => []
   }
 })
 
-defineEmits(['select', 'soft-delete', 'refresh'])
+const emit = defineEmits([
+  'select',
+  'soft-delete',
+  'refresh',
+  'update:selectedCategory',
+  'update:selectedTagIds',
+  'filter-change'
+])
+
+const showCategorySelect = ref(false)
+const showTagSelect = ref(false)
+const categorySelectorValue = ref(null)
+const tagSelectorValue = ref([])
+
+const categoryValue = computed({
+  get: () => props.selectedCategory ?? null,
+  set: (value) => emit('update:selectedCategory', value)
+})
+
+const tagValues = computed({
+  get: () => (Array.isArray(props.selectedTagIds) ? props.selectedTagIds : []),
+  set: (value) => emit('update:selectedTagIds', value ?? [])
+})
+
+const categoryLabel = computed(() => {
+  const matched = props.categoryOptions.find(
+    (item) => String(item.value) === String(categoryValue.value)
+  )
+  return matched?.label || '未选择'
+})
+
+const selectedTagDetails = computed(() => {
+  const list = Array.isArray(tagValues.value) ? tagValues.value : []
+  const map = new Map(props.tagOptions.map((item) => [String(item.value), item.label]))
+  return list
+    .map((val) => ({
+      value: val,
+      label: map.get(String(val)) || `标签 #${val}`
+    }))
+    .filter((item) => item.value !== null && item.value !== undefined)
+})
+
+const displayTags = (note) => {
+  const list = Array.isArray(note?.tags) ? note.tags : []
+  if (!list.length) return []
+  const normalized = list
+    .map((item) => ({
+      id: item.id ?? item.tagId ?? item.TagId,
+      name: item.name || `标签 #${item.id}`
+    }))
+    .filter((item) => item.id !== null && item.id !== undefined)
+  if (normalized.length <= 3) return normalized
+  return [...normalized.slice(0, 3), { id: 'more', name: '...' }]
+}
 
 const filteredNotes = computed(() => {
   const keyword = props.keyword?.toLowerCase()?.trim() ?? ''
@@ -112,6 +278,50 @@ const filteredNotes = computed(() => {
     )
   })
 })
+
+const handleFiltersChange = () => {
+  emit('filter-change')
+}
+
+const toggleCategorySelect = () => {
+  categorySelectorValue.value = categoryValue.value
+  showCategorySelect.value = true
+}
+
+const handleSelectCategory = (value) => {
+  categorySelectorValue.value = value
+  categoryValue.value = value ?? null
+  showCategorySelect.value = false
+  handleFiltersChange()
+}
+
+const clearCategory = () => {
+  categorySelectorValue.value = null
+  categoryValue.value = null
+  handleFiltersChange()
+}
+
+const toggleTagSelect = () => {
+  tagSelectorValue.value = [...tagValues.value]
+  showTagSelect.value = true
+}
+
+const handleSelectTags = (value) => {
+  const resolved = Array.isArray(value) ? value : []
+  tagSelectorValue.value = resolved
+  tagValues.value = resolved
+  showTagSelect.value = false
+  handleFiltersChange()
+}
+
+const removeTag = (tagId) => {
+  const filtered = (Array.isArray(tagValues.value) ? tagValues.value : []).filter(
+    (id) => String(id) !== String(tagId)
+  )
+  tagValues.value = filtered
+  tagSelectorValue.value = filtered
+  handleFiltersChange()
+}
 
 const typeName = (value) => noteTypeMap[value] || '笔记'
 
@@ -168,6 +378,41 @@ const renderPreview = (note) => {
 .header p {
   margin: 4px 0 0;
   color: #6b7280;
+  font-size: 12px;
+}
+
+.filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  margin-top: 12px;
+}
+
+.filter-label {
+  font-size: 12px;
+  color: #6b7280;
+}
+
+.filter-content {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 4px;
+}
+
+.filter-content.tags {
+  align-items: flex-start;
+}
+
+.filter-chips {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.filter-placeholder {
+  color: #94a3b8;
   font-size: 12px;
 }
 
@@ -228,6 +473,52 @@ const renderPreview = (note) => {
   min-height: 60px;
   color: #4b5563;
   font-size: 13px;
+}
+
+.note-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.meta-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.category-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #475569;
+  font-size: 12px;
+}
+
+.category-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  display: inline-block;
+  background: #475569;
+}
+
+.tag-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.type-chip :deep(.n-tag) {
+  background: #eef2ff;
+  color: #3730a3;
+}
+
+.tag-placeholder {
+  color: #94a3b8;
+  font-size: 12px;
 }
 
 .card-header {

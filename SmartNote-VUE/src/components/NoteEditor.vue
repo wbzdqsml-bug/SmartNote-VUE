@@ -16,6 +16,90 @@
         </div>
       </div>
 
+      <div class="control-row grouped">
+        <div class="control-block">
+          <span class="control-label">分类</span>
+          <div class="control-content">
+            <n-tag
+              v-if="categoryDisplay"
+              size="small"
+              round
+              closable
+              :bordered="false"
+              @close="updateCategory(null)"
+            >
+              <span
+                class="category-dot"
+                :style="{ backgroundColor: categoryDisplay.color || '#64748b' }"
+              ></span>
+              {{ categoryDisplay.label }}
+            </n-tag>
+            <span v-else class="placeholder">未选择</span>
+            <n-button
+              v-if="!categoryDisplay"
+              quaternary
+              size="tiny"
+              type="primary"
+              @click="toggleCategoryPicker"
+            >
+              + 添加
+            </n-button>
+            <n-select
+              v-if="showCategoryPicker && !categoryDisplay"
+              size="small"
+              v-model:value="localNote.categoryId"
+              :options="categoryOptions"
+              placeholder="选择分类"
+              style="width: 200px"
+              clearable
+              @update:value="handleSelectCategory"
+              @blur="showCategoryPicker = false"
+            />
+          </div>
+        </div>
+
+        <div class="control-block">
+          <span class="control-label">标签</span>
+          <div class="control-content tags-content">
+            <div class="tag-chip-row" v-if="tagDetails.length">
+              <n-tag
+                v-for="tag in tagDetails"
+                :key="tag.id"
+                size="small"
+                round
+                closable
+                :bordered="false"
+                @close="removeTag(tag.id)"
+              >
+                {{ tag.name }}
+              </n-tag>
+            </div>
+            <n-select
+              v-if="showTagPicker"
+              size="small"
+              v-model:value="tagPickerValue"
+              multiple
+              filterable
+              :options="tagOptions"
+              placeholder="添加标签"
+              style="width: 260px"
+              clearable
+              @update:value="handleSelectTags"
+              @blur="showTagPicker = false"
+            />
+            <n-button
+              quaternary
+              size="tiny"
+              type="primary"
+              @click="toggleTagPicker"
+            >
+              + 添加
+            </n-button>
+            <span v-if="!tagDetails.length" class="placeholder">未选择</span>
+          </div>
+        </div>
+      </div>
+
       <!-- ✅ 元信息行，增加上下间距 -->
       <div class="meta-row">
         <span>创建时间：{{ formatTime(note.createdAt || note.createTime) }}</span>
@@ -37,14 +121,17 @@
 </template>
 
 <script setup>
-import { computed, reactive, watch } from 'vue'
-import { NCard, NInput, NButton, NTag, NEmpty } from 'naive-ui'
+import { computed, reactive, ref, watch } from 'vue'
+import { NCard, NInput, NButton, NTag, NEmpty, NSelect, useMessage } from 'naive-ui'
 import { format } from 'date-fns'
 import { noteTypeMap, defaultContentByType } from '@/constants/noteTypes'
 import MarkdownEditor from '@/components/editors/MarkdownEditor.vue'
 import CanvasBoard from '@/components/editors/CanvasBoard.vue'
 import MindMapEditor from '@/components/editors/MindMapEditor.vue'
 import RichTextEditor from '@/components/editors/RichTextEditor.vue'
+import noteApi from '@/api/note'
+import { useCategoryStore } from '@/store/categoryStore'
+import { useTagStore } from '@/store/tagStore'
 
 const props = defineProps({
   note: {
@@ -59,6 +146,8 @@ const props = defineProps({
 
 const emit = defineEmits(['update-note', 'soft-delete'])
 
+const message = useMessage()
+
 const editorMap = {
   0: MarkdownEditor,
   1: CanvasBoard,
@@ -70,35 +159,222 @@ const localNote = reactive({
   id: null,
   title: '',
   content: '',
-  type: 0
+  type: 0,
+  categoryId: null,
+  tagIds: []
 })
+
+const categoryStore = useCategoryStore()
+const tagStore = useTagStore()
+
+const categoryOptions = computed(() => categoryStore.options)
+const tagOptions = computed(() => tagStore.options)
+
+const showCategoryPicker = ref(false)
+const showTagPicker = ref(false)
+const tagPickerValue = ref([])
+
+const resolveResponse = (response, fallback = []) => {
+  if (!response) return fallback
+  const data = response.data ?? fallback
+  if (data && typeof data === 'object' && 'data' in data) {
+    return data.data ?? fallback
+  }
+  return data ?? fallback
+}
+
+const normaliseId = (value) => {
+  if (value === null || value === undefined) return null
+  const num = Number(value)
+  return Number.isNaN(num) ? value : num
+}
+
+const categoryDisplay = computed(() => {
+  const id = localNote.categoryId
+  if (id === null || id === undefined || id === '') return null
+  const matched = (categoryStore.categories || []).find((item) => String(item.id) === String(id))
+  if (matched) {
+    return { label: matched.name || `分类 #${matched.id}`, color: matched.color || '', value: id }
+  }
+  const fallbackOption = categoryOptions.value.find((item) => String(item.value) === String(id))
+  if (fallbackOption) {
+    return { label: fallbackOption.label, color: fallbackOption.color || '', value: id }
+  }
+  return null
+})
+
+const tagDetails = computed(() => {
+  const ids = Array.isArray(localNote.tagIds) ? localNote.tagIds : []
+  return ids.map((id) => {
+    const matched = (tagStore.tags || []).find((item) => String(item.id) === String(id))
+    if (matched) return matched
+    const option = tagOptions.value.find((item) => String(item.value) === String(id))
+    if (option) return { id: option.value, name: option.label, color: option.color || '' }
+    return { id, name: `标签 #${id}`, color: '' }
+  })
+})
+
+const ensureCategoryOptions = async () => {
+  try {
+    await categoryStore.loadCategories()
+  } catch (error) {
+    console.error('[NoteEditor] ensureCategoryOptions error:', error)
+  }
+}
+
+const ensureTagOptions = async () => {
+  try {
+    await tagStore.loadTags()
+  } catch (error) {
+    console.error('[NoteEditor] ensureTagOptions error:', error)
+  }
+}
+
+const mergeTagsToStore = (list) => {
+  if (!Array.isArray(list) || !list.length) return
+  const existing = new Set((tagStore.tags || []).map((item) => String(item.id)))
+  const additions = list
+    .map((item) => {
+      const id = normaliseId(item.id ?? item.tagId ?? item.TagId)
+      if (id === null || id === undefined) return null
+      return {
+        id,
+        name: item.name || item.title || `标签 #${id}`,
+        color: item.color || ''
+      }
+    })
+    .filter(Boolean)
+    .filter((item) => !existing.has(String(item.id)))
+  if (additions.length) {
+    tagStore.tags = [...tagStore.tags, ...additions]
+  }
+}
+
+const loadNoteTags = async (noteId) => {
+  if (!noteId) {
+    localNote.tagIds = []
+    return
+  }
+  try {
+    const response = await noteApi.getTags(noteId)
+    const raw = resolveResponse(response, [])
+    const tags = Array.isArray(raw) ? raw : []
+    mergeTagsToStore(tags)
+    if (noteId !== localNote.id) return
+    localNote.tagIds = tags
+      .map((item) => normaliseId(item.id ?? item.tagId ?? item.TagId))
+      .filter((id) => id !== null && id !== undefined)
+    tagPickerValue.value = [...localNote.tagIds]
+  } catch (error) {
+    console.error('[NoteEditor] loadNoteTags error:', error)
+    message.error(error?.response?.data?.message || '获取笔记标签失败，请稍后重试。')
+  }
+}
 
 const currentEditor = computed(() => editorMap[localNote.type] || MarkdownEditor)
 const currentTypeLabel = computed(() => noteTypeMap[localNote.type] || '笔记')
 
 watch(
   () => props.note,
-  (value) => {
+  async (value) => {
     if (!value) {
       localNote.id = null
       localNote.title = ''
       localNote.content = ''
       localNote.type = 0
+      localNote.categoryId = null
+      localNote.tagIds = []
+      showCategoryPicker.value = false
+      showTagPicker.value = false
+      tagPickerValue.value = []
       return
     }
+
     const noteType = typeof value.type === 'number' ? value.type : Number(value.type ?? 0)
     const resolvedType = Number.isNaN(noteType) ? 0 : noteType
-    localNote.id = value.id
+    const targetId = value.id
+
+    localNote.id = targetId
     localNote.title = value.title || ''
     localNote.type = resolvedType
-    localNote.content = value.contentJson ?? value.content ?? defaultContentByType[resolvedType] ?? ''
+    localNote.content =
+      value.contentJson ?? value.content ?? defaultContentByType[resolvedType] ?? ''
+    localNote.categoryId = normaliseId(value.categoryId ?? value.CategoryId ?? null)
+    localNote.tagIds = Array.isArray(value.tagIds)
+      ? value.tagIds
+          .map((item) => normaliseId(item))
+          .filter((id) => id !== null && id !== undefined)
+      : []
+    tagPickerValue.value = [...localNote.tagIds]
+    showCategoryPicker.value = false
+    showTagPicker.value = false
+
+    await Promise.all([ensureCategoryOptions(), ensureTagOptions()])
+    if (targetId && targetId === localNote.id) {
+      await loadNoteTags(targetId)
+    }
   },
   { immediate: true }
 )
 
+const updateCategory = async (value) => {
+  if (!localNote.id) return
+  localNote.categoryId = value ?? null
+  try {
+    await noteApi.update(localNote.id, { categoryId: value ?? null })
+    message.success('分类已更新')
+    showCategoryPicker.value = false
+  } catch (error) {
+    console.error('[NoteEditor] updateCategory error:', error)
+    message.error(error?.response?.data?.message || '更新分类失败，请稍后重试。')
+  }
+}
+
+const handleSelectCategory = async (value) => {
+  await updateCategory(value)
+}
+
+const toggleCategoryPicker = () => {
+  showCategoryPicker.value = true
+}
+
+const updateTags = async (value) => {
+  if (!localNote.id) return
+  const tagIds = Array.isArray(value) ? value : []
+  localNote.tagIds = tagIds
+  try {
+    await noteApi.updateTags(localNote.id, { tagIds })
+    message.success('标签已更新')
+    showTagPicker.value = false
+  } catch (error) {
+    console.error('[NoteEditor] updateTags error:', error)
+    message.error(error?.response?.data?.message || '更新标签失败，请稍后重试。')
+  }
+}
+
+const handleSelectTags = async (value) => {
+  const next = Array.isArray(value) ? value : []
+  tagPickerValue.value = next
+  await updateTags(next)
+}
+
+const toggleTagPicker = () => {
+  showTagPicker.value = true
+}
+
+const removeTag = async (tagId) => {
+  const next = (Array.isArray(localNote.tagIds) ? localNote.tagIds : []).filter(
+    (id) => String(id) !== String(tagId)
+  )
+  tagPickerValue.value = next
+  await updateTags(next)
+}
+
 const payload = computed(() => ({
   title: localNote.title,
-  contentJson: localNote.content
+  contentJson: localNote.content,
+  categoryId: localNote.categoryId ?? '',
+  tagIds: Array.isArray(localNote.tagIds) ? [...localNote.tagIds] : []
 }))
 
 const handleSave = () => {
@@ -145,6 +421,53 @@ const formatTime = (value) => {
   display: flex;
   align-items: center;
   gap: 12px;
+}
+
+.control-row.grouped {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.control-block {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.control-label {
+  font-size: 12px;
+  color: #6b7280;
+}
+
+.control-content {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.control-content.tags-content {
+  align-items: flex-start;
+}
+
+.tag-chip-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.category-dot {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  margin-right: 6px;
+}
+
+.placeholder {
+  color: #9ca3af;
+  font-size: 12px;
 }
 
 /* ✅ 调整 meta-row 的上下间距与字体 */

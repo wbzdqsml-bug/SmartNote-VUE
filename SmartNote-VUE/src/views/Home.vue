@@ -26,15 +26,20 @@
           />
           <div class="notes-layout">
             <note-list
-              class="note-panel"
-              :notes="notes"
-              :loading="notesLoading"
-              :selected-id="selectedNoteId"
-              :keyword="keyword"
-              @select="handleSelectNote"
-              @soft-delete="handleSoftDelete"
-              @refresh="refreshAll"
-            />
+            class="note-panel"
+            :notes="notes"
+            :loading="notesLoading"
+            :selected-id="selectedNoteId"
+            :keyword="keyword"
+            :category-options="categoryOptions"
+            :tag-options="tagOptions"
+            v-model:selected-category="selectedCategory"
+            v-model:selected-tag-ids="selectedTagIds"
+            @select="handleSelectNote"
+            @soft-delete="handleSoftDelete"
+            @refresh="refreshAll"
+            @filter-change="handleFilterChange"
+          />
             <note-editor
               class="note-panel"
               :note="selectedNote"
@@ -80,44 +85,18 @@
     </n-layout>
   </n-layout>
 
-  <n-modal
+  <add-note-modal
     v-model:show="createVisible"
-    preset="card"
-    title="新建笔记"
-    :mask-closable="false"
-  >
-    <n-form :model="createForm" label-placement="left" label-width="80">
-      <n-form-item label="标题">
-        <n-input v-model:value="createForm.title" placeholder="请输入笔记标题" />
-      </n-form-item>
-      <n-form-item label="类型">
-        <n-select v-model:value="createForm.type" :options="noteTypeOptions" />
-      </n-form-item>
-      <n-form-item label="工作区">
-        <n-select
-          v-model:value="createForm.workspaceId"
-          :options="workspaceOptions"
-          :loading="workspaceLoading"
-          placeholder="请选择所属工作区"
-          clearable
-        />
-      </n-form-item>
-    </n-form>
-    <template #action>
-      <n-space justify="end">
-        <n-button @click="createVisible = false">取消</n-button>
-        <n-button type="primary" :loading="createSubmitting" @click="submitCreate">
-          创建
-        </n-button>
-      </n-space>
-    </template>
-  </n-modal>
+    :workspace-options="workspaceOptions"
+    :workspace-loading="workspaceLoading"
+    @created="handleCreatedNote"
+  />
 
   <recycle-drawer v-model:show="showRecycle" />
 </template>
 
 <script setup>
-import { computed, nextTick, onMounted, reactive, ref, watch } from 'vue'
+import { computed, nextTick, onMounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useMessage, useDialog } from 'naive-ui'
 import AppSidebar from '@/components/AppSidebar.vue'
@@ -132,15 +111,20 @@ import AiActionsPanel from '@/components/AIActionsPanel.vue'
 import KnowledgeGraphPanel from '@/components/KnowledgeGraphPanel.vue'
 import WorkspacePanel from '@/components/WorkspacePanel.vue'
 import RecycleDrawer from '@/components/RecycleDrawer.vue'
+import AddNoteModal from '@/components/AddNoteModal.vue'
 import noteApi from '@/api/note'
 import workspaceApi from '@/api/workspace'
-import { noteTypeOptions, noteTypeMap, defaultContentByType } from '@/constants/noteTypes'
+import { noteTypeMap } from '@/constants/noteTypes'
 import { useUserStore } from '@/store/userStore'
+import { useCategoryStore } from '@/store/categoryStore'
+import { useTagStore } from '@/store/tagStore'
 
 const router = useRouter()
 const message = useMessage()
 const dialog = useDialog()
 const userStore = useUserStore()
+const categoryStore = useCategoryStore()
+const tagStore = useTagStore()
 
 const activeSection = ref('notes')
 const keyword = ref('')
@@ -150,16 +134,15 @@ const notesLoading = ref(false)
 const selectedNoteId = ref(null)
 const noteSaving = ref(false)
 
+const categoryOptions = computed(() => categoryStore.options)
+const tagOptions = computed(() => tagStore.options)
+const selectedCategory = ref(null)
+const selectedTagIds = ref([])
+
 const workspaceOptions = ref([])
 const workspaceLoading = ref(false)
 
 const createVisible = ref(false)
-const createSubmitting = ref(false)
-const createForm = reactive({
-  title: '',
-  type: noteTypeOptions[0]?.value ?? 0,
-  workspaceId: null
-})
 
 const showRecycle = ref(false)
 
@@ -216,12 +199,17 @@ const normaliseNote = (raw) => {
   if (!raw || typeof raw !== 'object') return null
   const id = normaliseId(raw.id ?? raw.noteId ?? raw.noteID)
   const typeValue = Number.isInteger(raw.type) ? raw.type : Number(raw.type ?? 0)
-  const content = raw.contentJson ?? raw.content ?? ''
+  const content = raw.contentJson ?? raw.ContentJson ?? raw.content ?? ''
   const preview = raw.preview ?? ''
   const createdAt =
-    raw.createTime || raw.createdAt || raw.created_time || raw.created_at || null
+    raw.createTime || raw.CreateTime || raw.createdAt || raw.created_time || raw.created_at || null
   const updatedAt =
-    raw.lastUpdateTime || raw.updateTime || raw.updatedAt || raw.updated_at || createdAt
+    raw.lastUpdateTime ||
+    raw.LastUpdateTime ||
+    raw.updateTime ||
+    raw.updatedAt ||
+    raw.updated_at ||
+    createdAt
   return {
     ...raw,
     id,
@@ -232,7 +220,26 @@ const normaliseNote = (raw) => {
     preview,
     createdAt,
     updateTime: updatedAt,
-    workspaceId: raw.workspaceId ?? raw.WorkspaceId ?? null
+    workspaceId: raw.workspaceId ?? raw.WorkspaceId ?? null,
+    categoryId: normaliseId(
+      raw.categoryId ?? raw.CategoryId ?? raw.category?.id ?? raw.Category?.Id
+    ),
+    categoryName: raw.categoryName ?? raw.CategoryName ?? raw.category?.name ?? raw.Category?.Name ?? '',
+    categoryColor: raw.categoryColor ?? raw.CategoryColor ?? raw.category?.color ?? raw.Category?.Color ?? '',
+    tags: Array.isArray(raw.tags ?? raw.Tags)
+      ? (raw.tags ?? raw.Tags).map((item) => ({
+          id: normaliseId(item.id ?? item.Id ?? item.tagId ?? item.TagId),
+          name: item.name ?? item.Name,
+          color: item.color || item.Color || ''
+        }))
+      : [],
+    tagIds: Array.isArray(raw.tags ?? raw.Tags)
+      ? (raw.tags ?? raw.Tags)
+          .map((item) => normaliseId(item.id ?? item.tagId ?? item.TagId))
+          .filter((id) => id !== null && id !== undefined)
+    : Array.isArray(raw.tagIds)
+      ? raw.tagIds.map((id) => normaliseId(id)).filter((id) => id !== null && id !== undefined)
+      : []
   }
 }
 
@@ -241,10 +248,18 @@ const getNoteTimestamp = (note) => {
   return target ? new Date(target).getTime() : 0
 }
 
-const loadNotes = async (focusId = null) => {
+const loadNotes = async (focusId = selectedNoteId.value) => {
   notesLoading.value = true
   try {
-    const response = await noteApi.list()
+    const params = {}
+    const hasCategory =
+      selectedCategory.value !== null && selectedCategory.value !== undefined && selectedCategory.value !== ''
+    if (hasCategory) params.categoryId = selectedCategory.value
+
+    const hasTags = Array.isArray(selectedTagIds.value) && selectedTagIds.value.length > 0
+    if (hasTags) params.tagIds = selectedTagIds.value.join(',')
+
+    const response = Object.keys(params).length ? await noteApi.filter(params) : await noteApi.list()
     const raw = resolveResponse(response, [])
     const list = (Array.isArray(raw) ? raw : [])
       .map(normaliseNote)
@@ -288,9 +303,6 @@ const loadWorkspaceOptions = async () => {
         value: id
       }
     })
-    if (workspaceOptions.value.length && !createForm.workspaceId) {
-      createForm.workspaceId = workspaceOptions.value[0].value
-    }
   } catch (error) {
     console.error('[Home] loadWorkspaceOptions error:', error)
     if (isUnauthorized(error)) {
@@ -307,52 +319,15 @@ const ensureWorkspaceOptions = async () => {
   if (!workspaceOptions.value.length && !workspaceLoading.value) {
     await loadWorkspaceOptions()
   }
-  if (workspaceOptions.value.length && !createForm.workspaceId) {
-    createForm.workspaceId = workspaceOptions.value[0].value
-  }
 }
 
 const openCreateDialog = async () => {
-  createForm.title = ''
-  createForm.type = noteTypeOptions[0]?.value ?? 0
-  createForm.workspaceId = null
   await ensureWorkspaceOptions()
   createVisible.value = true
 }
 
-const submitCreate = async () => {
-  if (!createForm.title.trim()) {
-    message.warning('请输入笔记标题')
-    return
-  }
-  if (!createForm.workspaceId) {
-    message.warning('请选择笔记所属的工作区')
-    return
-  }
-  createSubmitting.value = true
-  try {
-    const payload = {
-      workspaceId: createForm.workspaceId,
-      title: createForm.title.trim(),
-      type: createForm.type,
-      contentJson: defaultContentByType[createForm.type] || ''
-    }
-    const response = await noteApi.create(payload)
-    const data = resolveResponse(response, {})
-    const newId = normaliseId(data?.noteId ?? data?.id)
-    message.success('新建笔记成功')
-    createVisible.value = false
-    await loadNotes(newId)
-  } catch (error) {
-    console.error('[Home] submitCreate error:', error)
-    if (error?.response?.status === 401) {
-      message.error(error?.response?.data?.message || '当前账号没有权限创建该笔记。')
-      return
-    }
-    message.error(error?.response?.data?.message || '新建笔记失败，请稍后重试。')
-  } finally {
-    createSubmitting.value = false
-  }
+const handleCreatedNote = async (noteId) => {
+  await loadNotes(noteId ?? selectedNoteId.value)
 }
 
 const handleSelectNote = (note) => {
@@ -374,6 +349,10 @@ const handleUpdateNote = async ({ id, payload }) => {
       title: payload.title,
       contentJson: payload.contentJson
     }
+    if ('categoryId' in payload) {
+      body.categoryId = payload.categoryId ?? null
+    }
+
     await noteApi.update(id, body)
     message.success('笔记已保存')
     await loadNotes(id)
@@ -409,6 +388,10 @@ const handleSearch = (value) => {
   keyword.value = value?.trim() ?? ''
 }
 
+const handleFilterChange = () => {
+  loadNotes(selectedNoteId.value)
+}
+
 const focusSection = (key) => {
   nextTick(() => {
     const target = sectionMap[key]?.value
@@ -421,6 +404,10 @@ const focusSection = (key) => {
 const handleSectionChange = (key) => {
   if (key === 'profile') {
     router.push('/profile')
+    return
+  }
+  if (key === 'tags') {
+    router.push('/tags')
     return
   }
   activeSection.value = key
@@ -475,7 +462,12 @@ onMounted(async () => {
   if (!userStore.profile) {
     userStore.fetchProfile()
   }
-  await Promise.all([loadWorkspaceOptions(), loadNotes()])
+  await Promise.all([
+    loadWorkspaceOptions(),
+    categoryStore.loadCategories(),
+    tagStore.loadTags(),
+    loadNotes()
+  ])
 })
 </script>
 

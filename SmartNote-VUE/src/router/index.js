@@ -2,6 +2,7 @@ import { createRouter, createWebHistory } from 'vue-router'
 import LoginRegister from '@/pages/LoginRegister.vue'
 import Home from '@/views/Home.vue'
 import Profile from '@/views/Profile.vue'
+import TagManager from '@/views/TagManager.vue'
 
 const routes = [
   {
@@ -30,6 +31,12 @@ const routes = [
     path: '/profile',
     name: 'profile',
     component: Profile,
+    meta: { requiresAuth: true }
+  },
+  {
+    path: '/tags',
+    name: 'tags',
+    component: TagManager,
     meta: { requiresAuth: true }
   }
 ]
