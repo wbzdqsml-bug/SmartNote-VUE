@@ -1,47 +1,45 @@
 <template>
   <div class="recycle-page">
-    <n-card class="section-card" title="回收站">
-      <div class="toolbar">
-        <n-button size="small" @click="load">刷新</n-button>
-        <n-button
-          size="small"
-          type="primary"
-          ghost
-          :disabled="!selectedRowKeys.length"
-          @click="handleRestore"
-        >
-          恢复选中
-        </n-button>
-        <n-popconfirm
-          v-if="selectedRowKeys.length"
-          positive-text="删除"
-          negative-text="取消"
-          @positive-click="handleDelete"
-        >
-          <template #trigger>
-            <n-button size="small" type="error" tertiary>彻底删除</n-button>
-          </template>
-          删除后无法恢复，确定继续？
-        </n-popconfirm>
-      </div>
+    <div class="toolbar">
+      <n-button size="small" @click="load">刷新</n-button>
+      <n-button
+        size="small"
+        type="primary"
+        ghost
+        :disabled="!selectedRowKeys.length"
+        @click="handleRestore"
+      >
+        恢复选中
+      </n-button>
+      <n-popconfirm
+        v-if="selectedRowKeys.length"
+        positive-text="删除"
+        negative-text="取消"
+        @positive-click="handleDelete"
+      >
+        <template #trigger>
+          <n-button size="small" type="error" tertiary>彻底删除</n-button>
+        </template>
+        删除后无法恢复，确定继续？
+      </n-popconfirm>
+    </div>
 
-      <n-data-table
-        :columns="columns"
-        :data="notes"
-        :loading="loading"
-        :pagination="pagination"
-        :row-key="(row) => row.id"
-        :checked-row-keys="selectedRowKeys"
-        @update:checked-row-keys="(keys) => (selectedRowKeys = keys)"
-        checkable
-      />
-    </n-card>
+    <n-data-table
+      :columns="columns"
+      :data="notes"
+      :loading="loading"
+      :pagination="pagination"
+      :row-key="(row) => row.id"
+      :checked-row-keys="selectedRowKeys"
+      @update:checked-row-keys="(keys) => (selectedRowKeys = keys)"
+      checkable
+    />
   </div>
 </template>
 
 <script setup>
 import { onMounted, ref } from 'vue'
-import { useMessage, NCard, NButton, NPopconfirm, NDataTable } from 'naive-ui'
+import { useMessage, NButton, NPopconfirm, NDataTable } from 'naive-ui'
 import recycleApi from '@/api/recycle'
 import { format } from 'date-fns'
 

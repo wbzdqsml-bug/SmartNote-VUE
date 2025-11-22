@@ -1,49 +1,25 @@
-﻿<template>
+<template>
   <n-layout-sider
     bordered
-    :width="240"
+    :width="260"
     :collapsed-width="0"
     collapse-mode="width"
     show-trigger
     class="sidebar"
   >
-    <!-- 顶部品牌 -->
     <div class="branding">
       <div class="logo-mark">S</div>
       <div class="logo-text">SmartNote</div>
     </div>
 
-    <!-- 新建笔记按钮 -->
-    <n-button type="primary" block strong size="large" @click="$emit('create-note')">
+    <n-button type="primary" block size="large" class="create-btn" @click="$emit('create-note')">
       + 新建笔记
     </n-button>
 
-    <!-- 搜索框 -->
-    <n-input
-      v-model:value="searchText"
-      size="large"
-      placeholder="搜索笔记..."
-      clearable
-      round
-      class="search"
-      @update:value="(val) => emit('search', val)"
-    >
-      <template #prefix>
-        <n-icon :component="SearchOutline" />
-      </template>
-    </n-input>
-
-    <!-- 菜单 -->
     <div class="menu-container">
-      <n-menu
-        :value="active"
-        :options="menuOptions"
-        class="menu"
-        @update:value="handleSelect"
-      />
+      <n-menu :value="active" :options="menuOptions" class="menu" @update:value="handleSelect" />
     </div>
 
-    <!-- ✅ 固定底部用户信息 -->
     <div class="footer">
       <div class="user">
         <n-avatar size="large" class="avatar">{{ displayInitial }}</n-avatar>
@@ -63,17 +39,9 @@
 
 <script setup>
 import { computed, ref } from 'vue'
-import { SearchOutline } from '@vicons/ionicons5'
-import { NLayoutSider, NButton, NInput, NIcon, NMenu, NAvatar } from 'naive-ui'
+import { NLayoutSider, NButton, NMenu, NAvatar } from 'naive-ui'
 
-const emit = defineEmits([
-  'create-note',
-  'search',
-  'update:active',
-  'open-profile',
-  'logout',
-  'open-recycle'
-])
+const emit = defineEmits(['create-note', 'update:active', 'open-profile', 'logout'])
 
 const props = defineProps({
   active: {
@@ -86,18 +54,16 @@ const props = defineProps({
   }
 })
 
-const searchText = ref('')
-
 const menuOptions = computed(() => [
-  { label: '🏠 首页概览', key: 'home' },
-  { label: '🗒 笔记编辑', key: 'notes' },
-  { label: '📊 学习分析', key: 'analysis' },
-  { label: '📈 知识图谱', key: 'graph' },
-  { label: '🧠 AI 助手', key: 'ai' },
-  { label: '⚙ 协作空间', key: 'workspace' },
-  { label: '🗑 回收站', key: 'recycle' },
-  { label: '🏷 标签管理', key: 'tags' },
-  { label: '👤 个人资料', key: 'profile' }
+  { label: '首页概览', key: 'home' },
+  { label: '笔记编辑', key: 'notes' },
+  { label: '学习分析', key: 'analysis' },
+  { label: '知识图谱', key: 'graph' },
+  { label: 'AI 助手', key: 'ai' },
+  { label: '协作空间', key: 'workspace' },
+  { label: '回收站', key: 'recycle' },
+  { label: '标签管理', key: 'tags' },
+  { label: '个人资料', key: 'profile' }
 ])
 
 const displayInitial = computed(() => {
@@ -114,35 +80,32 @@ const handleSelect = (key) => {
 
 <style scoped>
 .sidebar {
-  display: flex; /* ✅ 让整个侧边栏成为 Flex 容器 */
-  flex-direction: column;
-  justify-content: space-between; /* ✅ 顶部内容 + 底部固定 */
   height: 100%;
-  padding: 20px 16px;
   background: #ffffff;
-  color: #333;
-  box-shadow: 2px 0 8px rgba(0, 0, 0, 0.06);
-  border-right: 1px solid #f1f1f5;
+  font-family: 'Inter', 'Noto Sans SC', 'Roboto', 'Helvetica Neue', Arial, sans-serif;
+  border-right: 1px solid #e5e7eb;
+  display: flex;
+  flex-direction: column;
+  padding: 20px 16px;
   box-sizing: border-box;
 }
 
-/* 顶部区块 */
 .branding {
   display: flex;
   align-items: center;
   gap: 10px;
-  margin-bottom: 20px;
+  margin-bottom: 16px;
 }
 
 .logo-mark {
-  width: 36px;
-  height: 36px;
+  width: 40px;
+  height: 40px;
   border-radius: 10px;
-  background: linear-gradient(135deg, #3b82f6, #60a5fa);
+  background: #111827;
+  color: #ffffff;
   display: grid;
   place-items: center;
   font-weight: 700;
-  color: #fff;
   font-size: 18px;
 }
 
@@ -152,15 +115,21 @@ const handleSelect = (key) => {
   color: #111827;
 }
 
-.search {
-  margin: 16px 0 20px;
+.create-btn {
+  background: #111827;
+  color: #ffffff;
+  border-radius: 10px;
+  margin-bottom: 14px;
 }
 
-/* 菜单部分可滚动（防止内容溢出） */
+.create-btn:hover {
+  background: #0f172a;
+}
+
 .menu-container {
   flex: 1;
   overflow-y: auto;
-  margin-bottom: 12px;
+  margin-bottom: 16px;
 }
 
 .menu {
@@ -168,16 +137,22 @@ const handleSelect = (key) => {
   color: #111827;
 }
 
+.menu :deep(.n-menu-item-content) {
+  border-radius: 10px;
+  padding: 10px 12px;
+}
+
+.menu :deep(.n-menu-item-content:hover) {
+  background: #f3f4f6;
+}
+
 .menu :deep(.n-menu-item-content--selected) {
-  background-color: rgba(59, 130, 246, 0.1);
-  border-radius: 6px;
-  color: #2563eb;
+  background: #e5e7eb;
   font-weight: 600;
 }
 
-/* ✅ 底部用户信息固定 */
 .footer {
-  border-top: 1px solid #f1f1f5;
+  border-top: 1px solid #e5e7eb;
   padding-top: 12px;
   display: flex;
   flex-direction: column;
@@ -210,13 +185,11 @@ const handleSelect = (key) => {
 
 .logout {
   align-self: flex-start;
-  border-color: #ef4444;
-  color: #d03050;
-  transition: 0.2s ease;
+  border-color: #d1d5db;
+  color: #111827;
 }
 
 .logout:hover {
-  background: rgba(220, 38, 38, 0.05);
-  color: #b91c1c;
+  background: #f3f4f6;
 }
 </style>

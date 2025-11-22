@@ -23,7 +23,11 @@ const handleKeywords = (prompt) => {
 .ai-page {
   display: flex;
   flex-direction: column;
-  gap: 18px;
+  gap: 16px;
+  padding: 20px;
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
 }
 
 .section-card {

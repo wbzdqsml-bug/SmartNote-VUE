@@ -1,15 +1,5 @@
 <template>
   <div class="tag-page">
-    <header class="page-header">
-      <div>
-        <h2>标签 / 分类管理</h2>
-        <p>分开管理常用的标签与分类</p>
-      </div>
-      <n-space>
-        <n-button quaternary type="primary" @click="refreshAll">刷新</n-button>
-      </n-space>
-    </header>
-
     <div class="grid">
       <n-card class="form-card" title="快速创建标签">
         <n-space vertical :size="12">

@@ -214,10 +214,19 @@ onMounted(() => {
   display: flex;
   flex-direction: column;
   gap: 16px;
+  padding: 24px;
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  min-height: calc(100vh - 60px);
+  box-sizing: border-box;
 }
 
 .profile-card {
   width: 100%;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  box-shadow: none;
 }
 
 .header-row {
@@ -230,6 +239,7 @@ onMounted(() => {
 
 .info h3 {
   margin: 0 0 4px;
+  color: #111827;
 }
 
 .info .muted {

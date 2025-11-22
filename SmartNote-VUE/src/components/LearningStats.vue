@@ -1,23 +1,32 @@
-﻿<template>
-  <n-card class="learning-stats" title="学习趋势分析" :bordered="false">
+<template>
+  <div class="learning-stats">
+    <h3 class="title">学习趋势分析</h3>
     <div class="placeholder">
       <n-empty description="数据可视化模块开发中，敬请期待" />
     </div>
-  </n-card>
+  </div>
 </template>
 
 <script setup>
-import { NCard, NEmpty } from 'naive-ui'
+import { NEmpty } from 'naive-ui'
 </script>
 
 <style scoped>
 .learning-stats {
-  border-radius: 22px;
-  box-shadow: 0 18px 44px rgba(15, 23, 42, 0.08);
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  background: #ffffff;
   min-height: 240px;
   display: flex;
   flex-direction: column;
-  justify-content: center;
+  padding: 16px;
+}
+
+.title {
+  margin: 0 0 12px;
+  font-size: 18px;
+  font-weight: 700;
+  color: #111827;
 }
 
 .placeholder {
@@ -25,6 +34,6 @@ import { NCard, NEmpty } from 'naive-ui'
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 40px 0;
+  padding: 20px 0;
 }
 </style>

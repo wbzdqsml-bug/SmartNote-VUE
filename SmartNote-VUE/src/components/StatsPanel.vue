@@ -1,8 +1,6 @@
-﻿<template>
-  <n-card class="stats-panel" :bordered="false">
-    <template #header>
-      <h3>学习统计</h3>
-    </template>
+<template>
+  <div class="stats-panel">
+    <h3 class="title">学习统计</h3>
     <div class="grid">
       <div class="stat-item">
         <span class="label">笔记总数</span>
@@ -22,12 +20,12 @@
         <n-progress type="line" :percentage="item.percentage" indicator-placement="inside" />
       </div>
     </div>
-  </n-card>
+  </div>
 </template>
 
 <script setup>
 import { computed } from 'vue'
-import { NCard, NProgress } from 'naive-ui'
+import { NProgress } from 'naive-ui'
 import { format } from 'date-fns'
 import { noteTypeOptions } from '@/constants/noteTypes'
 
@@ -77,14 +75,23 @@ const typeProgress = computed(() => {
 
 <style scoped>
 .stats-panel {
-  border-radius: 22px;
-  box-shadow: 0 18px 44px rgba(15, 23, 42, 0.08);
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  padding: 16px;
+  background: #ffffff;
+}
+
+.title {
+  margin: 0 0 12px;
+  font-size: 18px;
+  font-weight: 700;
+  color: #111827;
 }
 
 .grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-  gap: 18px;
+  gap: 12px;
 }
 
 .stat-item {

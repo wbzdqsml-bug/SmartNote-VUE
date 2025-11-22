@@ -499,10 +499,10 @@ const formatTime = (value) => {
   display: flex;
   flex-direction: column;
   gap: 16px;
-  border-radius: 22px;
-  box-shadow: 0 18px 44px rgba(15, 23, 42, 0.06);
+  border-radius: 12px;
+  border: 1px solid #e5e7eb;
   background: #fff;
-  padding: 20px 24px 16px;
+  padding: 16px 18px 14px;
   box-sizing: border-box;
 }
 
@@ -516,6 +516,7 @@ const formatTime = (value) => {
 .title-input :deep(.n-input__input-el) {
   font-size: 20px;
   font-weight: 600;
+  color: #111827;
 }
 
 .type-actions {

@@ -346,9 +346,9 @@ const renderPreview = (note) => {
 
 <style scoped>
 .note-list {
-  border-radius: 22px;
-  box-shadow: 0 18px 44px rgba(15, 23, 42, 0.12);
-  background: #fff;
+  border-radius: 16px;
+  border: 1px solid #e5e7eb;
+  background: #ffffff;
   display: flex;
   flex-direction: column;
   height: 100%;
@@ -371,8 +371,9 @@ const renderPreview = (note) => {
 
 .header h3 {
   margin: 0;
-  font-size: 20px;
+  font-size: 18px;
   font-weight: 700;
+  color: #111827;
 }
 
 .header p {
@@ -423,11 +424,10 @@ const renderPreview = (note) => {
   overflow: hidden;
 }
 
-/* ✅ 让内部可滚动，外部固定高度 */
 .scroll-area {
   flex: 1;
   overflow-y: auto;
-  max-height: 480px; /* 固定高度，内部滚动 */
+  max-height: 480px;
   padding-right: 8px;
   scrollbar-gutter: stable;
 }
@@ -452,21 +452,21 @@ const renderPreview = (note) => {
 }
 
 .note-card {
-  border-radius: 16px;
-  transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+  border-radius: 12px;
+  border: 1px solid #e5e7eb;
+  background: #f9fafb;
+  transition: background 0.2s ease, border-color 0.2s ease;
   cursor: pointer;
   width: 100%;
   box-sizing: border-box;
 }
 
 .note-card.active {
-  border-color: rgba(79, 70, 229, 0.5);
-  box-shadow: 0 14px 32px rgba(79, 70, 229, 0.18);
+  border-color: #9ca3af;
 }
 
 .note-card:hover {
-  transform: translateY(-4px);
-  box-shadow: 0 16px 40px rgba(79, 70, 229, 0.25);
+  background: #ffffff;
 }
 
 .preview {
@@ -512,8 +512,8 @@ const renderPreview = (note) => {
 }
 
 .type-chip :deep(.n-tag) {
-  background: #eef2ff;
-  color: #3730a3;
+  background: #f3f4f6;
+  color: #111827;
 }
 
 .tag-placeholder {

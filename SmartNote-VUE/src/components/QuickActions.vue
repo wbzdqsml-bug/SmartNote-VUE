@@ -1,35 +1,19 @@
-﻿<template>
-  <n-card class="quick-actions" :bordered="false">
+<template>
+  <div class="quick-actions">
     <div class="left">
       <h3>快捷操作</h3>
       <p>快速创建笔记、导入文件，或调用智能助手。</p>
     </div>
-    <n-space>
-      <n-button type="primary" size="large" strong @click="$emit('create')">
-        <template #icon>
-          <n-icon :component="AddOutline" />
-        </template>
-        新建笔记
-      </n-button>
-      <n-button type="info" size="large" ghost @click="$emit('import')">
-        <template #icon>
-          <n-icon :component="CloudUploadOutline" />
-        </template>
-        导入文件
-      </n-button>
-      <n-button type="warning" size="large" ghost @click="$emit('open-ai')">
-        <template #icon>
-          <n-icon :component="SparklesOutline" />
-        </template>
-        AI 助手
-      </n-button>
-    </n-space>
-  </n-card>
+    <div class="actions">
+      <n-button type="primary" size="large" @click="$emit('create')">新建笔记</n-button>
+      <n-button size="large" ghost @click="$emit('import')">导入文件</n-button>
+      <n-button size="large" ghost @click="$emit('open-ai')">AI 助手</n-button>
+    </div>
+  </div>
 </template>
 
 <script setup>
-import { AddOutline, CloudUploadOutline, SparklesOutline } from '@vicons/ionicons5'
-import { NCard, NButton, NIcon, NSpace } from 'naive-ui'
+import { NButton } from 'naive-ui'
 </script>
 
 <style scoped>
@@ -37,27 +21,29 @@ import { NCard, NButton, NIcon, NSpace } from 'naive-ui'
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 24px 26px;
-  border-radius: 22px;
-  background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
-  color: #fff;
-  box-shadow: 0 16px 40px rgba(79, 70, 229, 0.25);
+  padding: 16px 18px;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  background: #ffffff;
+  gap: 12px;
 }
 
 .left h3 {
   margin: 0;
   font-weight: 700;
-  font-size: 22px;
+  font-size: 18px;
+  color: #111827;
 }
 
 .left p {
-  margin: 6px 0 0;
-  opacity: 0.85;
+  margin: 4px 0 0;
+  color: #6b7280;
   font-size: 13px;
 }
 
-:deep(.n-button) {
-  border-radius: 12px;
-  font-weight: 600;
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
 }
 </style>

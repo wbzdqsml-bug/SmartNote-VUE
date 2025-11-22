@@ -360,3 +360,33 @@ const submitCreate = async () => {
   }
 }
 </script>
+
+<style scoped>
+:deep(.n-modal-mask) {
+  @apply bg-black/30 backdrop-blur-sm;
+}
+
+:deep(.n-card) {
+  @apply w-[500px] bg-white border border-gray-200 shadow-sm rounded-2xl;
+}
+
+:deep(.n-card-header__main) {
+  @apply text-xl font-bold text-gray-900 mb-2;
+}
+
+:deep(.n-card__content) {
+  @apply space-y-3;
+}
+
+:deep(.n-card__action) {
+  @apply pt-2;
+}
+
+.grad-btn {
+  @apply bg-gray-900 text-white rounded-xl shadow-sm hover:shadow;
+}
+
+.ghost-btn {
+  @apply bg-transparent border border-gray-300 text-gray-800 rounded-xl hover:bg-gray-100 transition-all;
+}
+</style>

@@ -71,13 +71,17 @@ onMounted(() => {
 .analysis-page {
   display: flex;
   flex-direction: column;
-  gap: 18px;
+  gap: 16px;
+  padding: 20px;
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
 }
 
 .analysis-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(360px, 1fr));
-  gap: 18px;
+  gap: 16px;
 }
 
 .section-card {

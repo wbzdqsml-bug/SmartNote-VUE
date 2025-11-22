@@ -71,18 +71,16 @@ const props = defineProps({
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 22px 28px;
+  padding: 16px 20px;
   background: #ffffff;
-  border-radius: 24px;
-  box-shadow: 0 10px 34px rgba(15, 23, 42, 0.08);
-  margin-bottom: 18px;
+  border-bottom: 1px solid #e5e7eb;
 }
 
 .left h2 {
   margin: 0 0 6px;
-  font-size: 24px;
+  font-size: 20px;
   font-weight: 700;
-  color: #1f2937;
+  color: #111827;
 }
 
 .actions {
@@ -97,7 +95,7 @@ const props = defineProps({
 
 .notification {
   padding: 8px 0;
-  border-bottom: 1px solid rgba(15, 23, 42, 0.08);
+  border-bottom: 1px solid #e5e7eb;
 }
 
 .notification:last-child {
@@ -108,6 +106,7 @@ const props = defineProps({
   margin: 0;
   font-size: 14px;
   font-weight: 600;
+  color: #111827;
 }
 
 .notification p {

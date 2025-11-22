@@ -1,11 +1,9 @@
-﻿<template>
-  <n-card class="ai-panel" :bordered="false">
-    <template #header>
-      <div class="header">
-        <h3>AI 智能助手</h3>
-        <n-tag type="success" size="small">Beta</n-tag>
-      </div>
-    </template>
+<template>
+  <div class="ai-panel">
+    <div class="header">
+      <h3>AI 智能助手</h3>
+      <n-tag type="success" size="small">Beta</n-tag>
+    </div>
     <n-space vertical>
       <n-input
         v-model:value="prompt"
@@ -21,12 +19,12 @@
         {{ result }}
       </n-alert>
     </n-space>
-  </n-card>
+  </div>
 </template>
 
 <script setup>
 import { ref } from 'vue'
-import { NCard, NButton, NInput, NAlert, NSpace, NTag } from 'naive-ui'
+import { NButton, NInput, NAlert, NSpace, NTag } from 'naive-ui'
 
 const emit = defineEmits(['analyse', 'keywords'])
 
@@ -76,13 +74,16 @@ const sleep = (ms = 800) => new Promise((resolve) => setTimeout(resolve, ms))
 
 <style scoped>
 .ai-panel {
-  border-radius: 22px;
-  box-shadow: 0 18px 44px rgba(15, 23, 42, 0.08);
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  background: #ffffff;
+  padding: 16px;
 }
 
 .header {
   display: flex;
   align-items: center;
   gap: 8px;
+  margin-bottom: 12px;
 }
 </style>

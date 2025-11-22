@@ -780,8 +780,8 @@ onMounted(() => {
 
 <style scoped>
 .workspace-panel {
-  border-radius: 22px;
-  box-shadow: 0 18px 44px rgba(15, 23, 42, 0.08);
+  border-radius: 12px;
+  border: 1px solid #e5e7eb;
 }
 
 .header {
@@ -799,26 +799,28 @@ onMounted(() => {
   width: 40%;
   max-height: 420px;
   overflow: auto;
-  border-radius: 16px;
+  border-radius: 12px;
+  border: 1px solid #e5e7eb;
 }
 
 .workspace-item {
-  border-radius: 16px;
-  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  border-radius: 12px;
+  transition: background 0.2s ease, border-color 0.2s ease;
 }
 
 .workspace-item.active {
-  box-shadow: 0 12px 28px rgba(79, 70, 229, 0.15);
+  border-color: #9ca3af;
 }
 
 .workspace-item:hover {
-  transform: translateY(-3px);
+  background: #f9fafb;
 }
 
 .workspace-detail {
   flex: 1;
-  background: rgba(248, 250, 252, 0.9);
-  border-radius: 18px;
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
   padding: 18px;
   display: flex;
   flex-direction: column;
@@ -863,7 +865,6 @@ onMounted(() => {
   color: #475569;
 }
 </style>
-
 
 
 

@@ -7,31 +7,18 @@
     />
 
     <div class="overview-grid">
-      <n-card class="overview-card" title="笔记总览">
-        <note-overview
-          :notes="notes"
-          :limit="notes.length || 0"
-          @select="openNote"
-          @open="openNote"
-        />
-      </n-card>
-      <n-card class="overview-card" title="最近笔记">
-        <div v-if="recentNotes.length" class="recent-list">
-          <div
-            v-for="item in recentNotes"
-            :key="item.id"
-            class="recent-item"
-            @click="openNote(item)"
-          >
-            <div class="recent-meta">
-              <span class="type">{{ item.typeName || '笔记' }}</span>
-              <span class="time">{{ formatTime(item.updateTime || item.createdAt) }}</span>
-            </div>
-            <div class="title">{{ item.title || '未命名笔记' }}</div>
-            <div class="preview">{{ item.preview || '暂无预览' }}</div>
+      <n-card class="overview-card" title="全部笔记">
+        <div class="overview-wrapper">
+          <div class="search-bar">
+            <n-input
+              v-model:value="searchTerm"
+              placeholder="搜索笔记标题或内容"
+              clearable
+              size="large"
+            />
           </div>
+          <note-overview :notes="filteredNotes" @select="openNote" @open="openNote" />
         </div>
-        <n-empty v-else description="暂无笔记，点击上方“新建笔记”开始吧" />
       </n-card>
     </div>
   </div>
@@ -52,8 +39,18 @@ const message = useMessage()
 
 const notes = ref([])
 const loading = ref(false)
+const searchTerm = ref('')
 
 const recentNotes = computed(() => notes.value.slice(0, 6))
+const filteredNotes = computed(() => {
+  const keyword = searchTerm.value.trim().toLowerCase()
+  if (!keyword) return notes.value
+  return notes.value.filter((note) => {
+    const title = note.title?.toLowerCase() || ''
+    const content = note.contentJson?.toLowerCase() || ''
+    return title.includes(keyword) || content.includes(keyword)
+  })
+})
 
 const normaliseId = (value) => {
   if (value === null || value === undefined) return null
@@ -152,10 +149,20 @@ onMounted(() => {
   gap: 18px;
 }
 
+.search-bar {
+  width: 100%;
+}
+
 .overview-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(360px, 1fr));
   gap: 18px;
+}
+
+.overview-wrapper {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
 }
 
 .overview-card {

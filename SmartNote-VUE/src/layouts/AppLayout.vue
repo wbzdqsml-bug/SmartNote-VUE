@@ -143,22 +143,22 @@ onMounted(() => {
 <style scoped>
 .app-layout {
   height: 100vh;
-  background: #f3f4f6;
+  background: #f7f7f7;
 }
 
 .main-area {
   display: flex;
   flex-direction: column;
   height: 100vh;
-  background: linear-gradient(180deg, #f8fafc 0%, #eef2ff 100%);
+  background: #ffffff;
 }
 
 .main-scroll {
   flex: 1;
-  padding: 0 28px 32px;
+  padding: 0 24px 28px;
   overflow-y: auto;
   display: flex;
   flex-direction: column;
-  gap: 24px;
+  gap: 20px;
 }
 </style>
