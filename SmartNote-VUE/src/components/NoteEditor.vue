@@ -55,6 +55,18 @@
               @update:value="handleSelectCategory"
               @blur="showCategoryPicker = false"
             />
+            <div v-if="showCategoryPicker && !categoryDisplay" class="inline-create">
+              <n-color-picker v-model:value="newCategoryColor" size="small" :modes="['hex']" />
+              <n-input
+                size="small"
+                v-model:value="newCategoryName"
+                placeholder="新建分类名称"
+                style="width: 200px"
+              />
+              <n-button size="tiny" type="primary" :loading="creatingCategory" @click="handleCreateCategory">
+                新建分类
+              </n-button>
+            </div>
           </div>
         </div>
 
@@ -87,6 +99,18 @@
               @update:value="handleSelectTags"
               @blur="showTagPicker = false"
             />
+            <div v-if="showTagPicker" class="inline-create">
+              <n-color-picker v-model:value="newTagColor" size="small" :modes="['hex']" />
+              <n-input
+                size="small"
+                v-model:value="newTagName"
+                placeholder="新建标签名称"
+                style="width: 200px"
+              />
+              <n-button size="tiny" type="primary" :loading="creatingTag" @click="handleCreateTag">
+                新建标签
+              </n-button>
+            </div>
             <n-button
               quaternary
               size="tiny"
@@ -122,7 +146,16 @@
 
 <script setup>
 import { computed, reactive, ref, watch } from 'vue'
-import { NCard, NInput, NButton, NTag, NEmpty, NSelect, useMessage } from 'naive-ui'
+import {
+  NCard,
+  NInput,
+  NButton,
+  NTag,
+  NEmpty,
+  NSelect,
+  NColorPicker,
+  useMessage
+} from 'naive-ui'
 import { format } from 'date-fns'
 import { noteTypeMap, defaultContentByType } from '@/constants/noteTypes'
 import MarkdownEditor from '@/components/editors/MarkdownEditor.vue'
@@ -173,6 +206,13 @@ const tagOptions = computed(() => tagStore.options)
 const showCategoryPicker = ref(false)
 const showTagPicker = ref(false)
 const tagPickerValue = ref([])
+const tagsDirty = ref(false)
+const newCategoryName = ref('')
+const creatingCategory = ref(false)
+const newCategoryColor = ref('#FF9933')
+const newTagName = ref('')
+const creatingTag = ref(false)
+const newTagColor = ref('#00AAFF')
 
 const resolveResponse = (response, fallback = []) => {
   if (!response) return fallback
@@ -214,17 +254,17 @@ const tagDetails = computed(() => {
   })
 })
 
-const ensureCategoryOptions = async () => {
+const ensureCategoryOptions = async (force = false) => {
   try {
-    await categoryStore.loadCategories()
+    await categoryStore.loadCategories(force)
   } catch (error) {
     console.error('[NoteEditor] ensureCategoryOptions error:', error)
   }
 }
 
-const ensureTagOptions = async () => {
+const ensureTagOptions = async (force = false) => {
   try {
-    await tagStore.loadTags()
+    await tagStore.loadTags(force)
   } catch (error) {
     console.error('[NoteEditor] ensureTagOptions error:', error)
   }
@@ -250,27 +290,6 @@ const mergeTagsToStore = (list) => {
   }
 }
 
-const loadNoteTags = async (noteId) => {
-  if (!noteId) {
-    localNote.tagIds = []
-    return
-  }
-  try {
-    const response = await noteApi.getTags(noteId)
-    const raw = resolveResponse(response, [])
-    const tags = Array.isArray(raw) ? raw : []
-    mergeTagsToStore(tags)
-    if (noteId !== localNote.id) return
-    localNote.tagIds = tags
-      .map((item) => normaliseId(item.id ?? item.tagId ?? item.TagId))
-      .filter((id) => id !== null && id !== undefined)
-    tagPickerValue.value = [...localNote.tagIds]
-  } catch (error) {
-    console.error('[NoteEditor] loadNoteTags error:', error)
-    message.error(error?.response?.data?.message || '获取笔记标签失败，请稍后重试。')
-  }
-}
-
 const currentEditor = computed(() => editorMap[localNote.type] || MarkdownEditor)
 const currentTypeLabel = computed(() => noteTypeMap[localNote.type] || '笔记')
 
@@ -287,6 +306,11 @@ watch(
       showCategoryPicker.value = false
       showTagPicker.value = false
       tagPickerValue.value = []
+      tagsDirty.value = false
+      newCategoryName.value = ''
+      newCategoryColor.value = '#FF9933'
+      newTagName.value = ''
+      newTagColor.value = '#00AAFF'
       return
     }
 
@@ -300,19 +324,25 @@ watch(
     localNote.content =
       value.contentJson ?? value.content ?? defaultContentByType[resolvedType] ?? ''
     localNote.categoryId = normaliseId(value.categoryId ?? value.CategoryId ?? null)
+    const incomingTags = Array.isArray(value.tags) ? value.tags : []
+    mergeTagsToStore(incomingTags)
     localNote.tagIds = Array.isArray(value.tagIds)
       ? value.tagIds
           .map((item) => normaliseId(item))
           .filter((id) => id !== null && id !== undefined)
-      : []
+      : incomingTags
+          .map((item) => normaliseId(item.id ?? item.tagId ?? item.TagId))
+          .filter((id) => id !== null && id !== undefined)
     tagPickerValue.value = [...localNote.tagIds]
     showCategoryPicker.value = false
     showTagPicker.value = false
+    tagsDirty.value = false
+    newCategoryName.value = ''
+    newCategoryColor.value = '#FF9933'
+    newTagName.value = ''
+    newTagColor.value = '#00AAFF'
 
     await Promise.all([ensureCategoryOptions(), ensureTagOptions()])
-    if (targetId && targetId === localNote.id) {
-      await loadNoteTags(targetId)
-    }
   },
   { immediate: true }
 )
@@ -321,7 +351,12 @@ const updateCategory = async (value) => {
   if (!localNote.id) return
   localNote.categoryId = value ?? null
   try {
-    await noteApi.update(localNote.id, { categoryId: value ?? null })
+    await noteApi.update(localNote.id, {
+      title: localNote.title,
+      contentJson: localNote.content,
+      content: localNote.content,
+      categoryId: value ?? null
+    })
     message.success('分类已更新')
     showCategoryPicker.value = false
   } catch (error) {
@@ -338,48 +373,114 @@ const toggleCategoryPicker = () => {
   showCategoryPicker.value = true
 }
 
-const updateTags = async (value) => {
-  if (!localNote.id) return
-  const tagIds = Array.isArray(value) ? value : []
-  localNote.tagIds = tagIds
+const handleCreateCategory = async () => {
+  const name = newCategoryName.value.trim()
+  if (!name) {
+    message.warning('请输入分类名称')
+    return
+  }
+  if (creatingCategory.value) return
+  creatingCategory.value = true
   try {
-    await noteApi.updateTags(localNote.id, { tagIds })
-    message.success('标签已更新')
-    showTagPicker.value = false
+    const created = await categoryStore.createCategory({
+      name,
+      color: newCategoryColor.value || ''
+    })
+    const id = normaliseId(created?.id ?? created?.categoryId ?? created?.CategoryId)
+    if (id !== null && id !== undefined) {
+      localNote.categoryId = id
+      showCategoryPicker.value = false
+      message.success('分类已创建并已选中')
+    }
+    await ensureCategoryOptions(true)
   } catch (error) {
-    console.error('[NoteEditor] updateTags error:', error)
-    message.error(error?.response?.data?.message || '更新标签失败，请稍后重试。')
+    console.error('[NoteEditor] handleCreateCategory error:', error)
+    message.error(error?.response?.data?.message || '创建分类失败，请稍后重试。')
+  } finally {
+    newCategoryName.value = ''
+    newCategoryColor.value = '#FF9933'
+    creatingCategory.value = false
   }
 }
 
-const handleSelectTags = async (value) => {
-  const next = Array.isArray(value) ? value : []
-  tagPickerValue.value = next
-  await updateTags(next)
+const normaliseTagList = (value) =>
+  (Array.isArray(value) ? value : [])
+    .map((item) => normaliseId(item))
+    .filter((id) => id !== null && id !== undefined)
+
+const isSameTagList = (a = [], b = []) => {
+  if (a.length !== b.length) return false
+  return a.every((item, index) => String(item) === String(b[index]))
+}
+
+const handleSelectTags = (value) => {
+  const next = normaliseTagList(value)
+  const current = normaliseTagList(localNote.tagIds)
+  tagPickerValue.value = [...next]
+  if (isSameTagList(current, next)) {
+    showTagPicker.value = false
+    return
+  }
+  localNote.tagIds = next
+  tagsDirty.value = true
+  showTagPicker.value = false
 }
 
 const toggleTagPicker = () => {
   showTagPicker.value = true
 }
 
-const removeTag = async (tagId) => {
+const removeTag = (tagId) => {
   const next = (Array.isArray(localNote.tagIds) ? localNote.tagIds : []).filter(
     (id) => String(id) !== String(tagId)
   )
-  tagPickerValue.value = next
-  await updateTags(next)
+  if (isSameTagList(localNote.tagIds, next)) return
+  tagPickerValue.value = [...next]
+  localNote.tagIds = next
+  tagsDirty.value = true
+}
+
+const handleCreateTag = async () => {
+  const name = newTagName.value.trim()
+  if (!name) {
+    message.warning('请输入标签名称')
+    return
+  }
+  if (creatingTag.value) return
+  creatingTag.value = true
+  try {
+    const created = await tagStore.createTag({ name, color: newTagColor.value || '' })
+    const id = normaliseId(created?.id ?? created?.tagId ?? created?.TagId)
+    if (id !== null && id !== undefined) {
+      const next = normaliseTagList([...localNote.tagIds, id])
+      localNote.tagIds = next
+      tagPickerValue.value = [...next]
+      tagsDirty.value = true
+      showTagPicker.value = false
+      message.success('标签已创建并已选中')
+    }
+    await ensureTagOptions(true)
+  } catch (error) {
+    console.error('[NoteEditor] handleCreateTag error:', error)
+    message.error(error?.response?.data?.message || '创建标签失败，请稍后重试。')
+  } finally {
+    newTagName.value = ''
+    newTagColor.value = '#00AAFF'
+    creatingTag.value = false
+  }
 }
 
 const payload = computed(() => ({
   title: localNote.title,
+  content: localNote.content,
   contentJson: localNote.content,
-  categoryId: localNote.categoryId ?? '',
+  categoryId: localNote.categoryId ?? null,
   tagIds: Array.isArray(localNote.tagIds) ? [...localNote.tagIds] : []
 }))
 
 const handleSave = () => {
   if (!localNote.id) return
-  emit('update-note', { id: localNote.id, payload: payload.value })
+  emit('update-note', { id: localNote.id, payload: payload.value, tagsChanged: tagsDirty.value })
 }
 
 const formatTime = (value) => {
@@ -468,6 +569,12 @@ const formatTime = (value) => {
 .placeholder {
   color: #9ca3af;
   font-size: 12px;
+}
+
+.inline-create {
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 
 /* ✅ 调整 meta-row 的上下间距与字体 */

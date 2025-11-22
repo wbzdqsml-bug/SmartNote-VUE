@@ -1,8 +1,15 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import LoginRegister from '@/pages/LoginRegister.vue'
-import Home from '@/views/Home.vue'
-import Profile from '@/views/Profile.vue'
+import AppLayout from '@/layouts/AppLayout.vue'
+import Overview from '@/views/Overview.vue'
+import NotesWorkspace from '@/views/NotesWorkspace.vue'
+import Analysis from '@/views/Analysis.vue'
+import AiAssistant from '@/views/AiAssistant.vue'
+import KnowledgeGraphPage from '@/views/KnowledgeGraphPage.vue'
+import WorkspacePage from '@/views/WorkspacePage.vue'
+import RecyclePage from '@/views/RecyclePage.vue'
 import TagManager from '@/views/TagManager.vue'
+import Profile from '@/views/Profile.vue'
 
 const routes = [
   {
@@ -22,22 +29,110 @@ const routes = [
     meta: { guestOnly: true }
   },
   {
-    path: '/home',
-    name: 'home',
-    component: Home,
-    meta: { requiresAuth: true }
-  },
-  {
-    path: '/profile',
-    name: 'profile',
-    component: Profile,
-    meta: { requiresAuth: true }
-  },
-  {
-    path: '/tags',
-    name: 'tags',
-    component: TagManager,
-    meta: { requiresAuth: true }
+    path: '/',
+    component: AppLayout,
+    meta: { requiresAuth: true },
+    children: [
+      {
+        path: 'home',
+        name: 'home',
+        component: Overview,
+        meta: {
+          requiresAuth: true,
+          sidebarKey: 'home',
+          title: '首页概览',
+          subtitle: '笔记总览与最近动态'
+        }
+      },
+      {
+        path: 'notes',
+        name: 'notes',
+        component: NotesWorkspace,
+        meta: {
+          requiresAuth: true,
+          sidebarKey: 'notes',
+          title: '笔记编辑',
+          subtitle: '管理与编辑笔记'
+        }
+      },
+      {
+        path: 'analysis',
+        name: 'analysis',
+        component: Analysis,
+        meta: {
+          requiresAuth: true,
+          sidebarKey: 'analysis',
+          title: '学习分析',
+          subtitle: '学习统计与趋势分析'
+        }
+      },
+      {
+        path: 'ai',
+        name: 'ai',
+        component: AiAssistant,
+        meta: {
+          requiresAuth: true,
+          sidebarKey: 'ai',
+          title: 'AI 助手',
+          subtitle: '智能创作与分析'
+        }
+      },
+      {
+        path: 'graph',
+        name: 'graph',
+        component: KnowledgeGraphPage,
+        meta: {
+          requiresAuth: true,
+          sidebarKey: 'graph',
+          title: '知识图谱',
+          subtitle: '可视化知识关联'
+        }
+      },
+      {
+        path: 'workspace',
+        name: 'workspace',
+        component: WorkspacePage,
+        meta: {
+          requiresAuth: true,
+          sidebarKey: 'workspace',
+          title: '协作空间',
+          subtitle: '工作区与成员管理'
+        }
+      },
+      {
+        path: 'recycle',
+        name: 'recycle',
+        component: RecyclePage,
+        meta: {
+          requiresAuth: true,
+          sidebarKey: 'recycle',
+          title: '回收站',
+          subtitle: '管理已删除的笔记'
+        }
+      },
+      {
+        path: 'tags',
+        name: 'tags',
+        component: TagManager,
+        meta: {
+          requiresAuth: true,
+          sidebarKey: 'tags',
+          title: '标签管理',
+          subtitle: '分类与标签维护'
+        }
+      },
+      {
+        path: 'profile',
+        name: 'profile',
+        component: Profile,
+        meta: {
+          requiresAuth: true,
+          sidebarKey: 'profile',
+          title: '个人资料',
+          subtitle: '查看并更新账号信息'
+        }
+      }
+    ]
   }
 ]
 

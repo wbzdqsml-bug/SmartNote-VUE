@@ -78,7 +78,7 @@ const emit = defineEmits([
 const props = defineProps({
   active: {
     type: String,
-    default: 'notes'
+    default: 'home'
   },
   profile: {
     type: Object,
@@ -89,13 +89,15 @@ const props = defineProps({
 const searchText = ref('')
 
 const menuOptions = computed(() => [
-  { label: '🗒 我的笔记', key: 'notes' },
+  { label: '🏠 首页概览', key: 'home' },
+  { label: '🗒 笔记编辑', key: 'notes' },
   { label: '📊 学习分析', key: 'analysis' },
+  { label: '📈 知识图谱', key: 'graph' },
   { label: '🧠 AI 助手', key: 'ai' },
+  { label: '⚙ 协作空间', key: 'workspace' },
   { label: '🗑 回收站', key: 'recycle' },
   { label: '🏷 标签管理', key: 'tags' },
-  { label: '👤 个人资料', key: 'profile' },
-  { label: '⚙ 协作空间', key: 'settings' }
+  { label: '👤 个人资料', key: 'profile' }
 ])
 
 const displayInitial = computed(() => {
@@ -106,11 +108,6 @@ const displayInitial = computed(() => {
 const displayName = computed(() => props.profile?.nickname || props.profile?.username || '未登录')
 
 const handleSelect = (key) => {
-  if (key === 'recycle') {
-    emit('open-recycle')
-    emit('update:active', props.active)
-    return
-  }
   emit('update:active', key)
 }
 </script>
