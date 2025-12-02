@@ -3,7 +3,6 @@ import LoginRegister from '@/pages/LoginRegister.vue'
 import AppLayout from '@/layouts/AppLayout.vue'
 import Overview from '@/views/Overview.vue'
 import NotesWorkspace from '@/views/NotesWorkspace.vue'
-import Analysis from '@/views/Analysis.vue'
 import AiAssistant from '@/views/AiAssistant.vue'
 import KnowledgeGraphPage from '@/views/KnowledgeGraphPage.vue'
 import WorkspacePage from '@/views/WorkspacePage.vue'
@@ -57,13 +56,13 @@ const routes = [
       },
       {
         path: 'analysis',
-        name: 'analysis',
-        component: Analysis,
+        name: 'Analysis',
+        component: () => import('@/views/AnalysisView.vue'),
         meta: {
           requiresAuth: true,
           sidebarKey: 'analysis',
-          title: '学习分析',
-          subtitle: '学习统计与趋势分析'
+          title: '学习统计',
+          subtitle: '学习趋势与数据洞察'
         }
       },
       {
