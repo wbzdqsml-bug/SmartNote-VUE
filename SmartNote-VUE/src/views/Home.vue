@@ -24,35 +24,35 @@
             @import="handleImport"
             @open-ai="goToAiSection"
           />
-          <div class="notes-layout">
-            <note-list
-            class="note-panel"
-            :notes="notes"
-            :loading="notesLoading"
-            :selected-id="selectedNoteId"
-            :keyword="keyword"
-            :category-options="categoryOptions"
-            :tag-options="tagOptions"
-            v-model:selected-category="selectedCategory"
-            v-model:selected-tag-ids="selectedTagIds"
-            @select="handleSelectNote"
-            @soft-delete="handleSoftDelete"
-            @refresh="refreshAll"
-            @filter-change="handleFilterChange"
-          />
-            <note-editor
-              class="note-panel"
-              :note="selectedNote"
-              :saving="noteSaving"
-              @update-note="handleUpdateNote"
-              @soft-delete="handleSoftDelete"
-            />
-          </div>
           <note-overview
-            class="section-card"
+            class="section-card note-overview-panel"
             :notes="recentNotes"
             @select="handleSelectNote"
             @open="handleOverviewOpen"
+          />
+          <div class="note-list-row">
+            <note-list
+              class="note-panel"
+              :notes="notes"
+              :loading="notesLoading"
+              :selected-id="selectedNoteId"
+              :keyword="keyword"
+              :category-options="categoryOptions"
+              :tag-options="tagOptions"
+              v-model:selected-category="selectedCategory"
+              v-model:selected-tag-ids="selectedTagIds"
+              @select="handleSelectNote"
+              @soft-delete="handleSoftDelete"
+              @refresh="refreshAll"
+              @filter-change="handleFilterChange"
+            />
+          </div>
+          <note-editor
+            class="note-panel note-editor-full"
+            :note="selectedNote"
+            :saving="noteSaving"
+            @update-note="handleUpdateNote"
+            @soft-delete="handleSoftDelete"
           />
         </section>
 
@@ -506,14 +506,25 @@ onMounted(async () => {
   gap: 22px;
 }
 
-.notes-layout {
-  display: grid;
-  grid-template-columns: minmax(320px, 360px) minmax(480px, 1fr);
-  gap: 24px;
+.note-list-row {
+  display: flex;
+  flex-direction: row;
+  gap: 16px;
+  width: 100%;
+  height: 640px;
+  overflow: hidden;
 }
 
 .note-panel {
   min-height: 420px;
+  width: 100%;
+  height: 640px;
+  overflow: hidden;
+}
+
+.note-editor-full {
+  width: 100%;
+  height: 640px;
 }
 
 .analysis-grid {
@@ -533,10 +544,6 @@ onMounted(async () => {
 }
 
 @media (max-width: 1200px) {
-  .notes-layout {
-    grid-template-columns: 1fr;
-  }
-
   .note-panel {
     min-height: 360px;
   }

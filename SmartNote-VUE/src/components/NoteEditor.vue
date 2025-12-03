@@ -13,6 +13,7 @@
           <n-button type="primary" strong size="small" :loading="saving" @click="handleSave">
             保存
           </n-button>
+          <n-button quaternary size="small" @click="showExpanded = true">放大编辑</n-button>
         </div>
       </div>
 
@@ -131,7 +132,9 @@
       </div>
 
       <!-- ✅ 编辑器主体区 -->
-      <component :is="currentEditor" v-model="localNote.content" class="dynamic-editor" />
+      <div class="editor-row">
+        <component :is="currentEditor" v-model="localNote.content" class="dynamic-editor" />
+      </div>
 
       <div class="footer">
         <n-button tertiary type="error" @click="emit('soft-delete', note.id)">移入回收站</n-button>
@@ -142,6 +145,22 @@
       <n-empty description="请选择左侧的笔记" />
     </template>
   </n-card>
+
+  <div v-if="showExpanded" class="editor-overlay" @click.self="showExpanded = false">
+    <div class="overlay-card">
+      <div class="overlay-header">
+        <div class="overlay-title">
+          <span>{{ localNote.title || '放大编辑' }}</span>
+          <n-tag type="info" size="small">{{ currentTypeLabel }}</n-tag>
+        </div>
+        <div class="overlay-actions">
+          <n-button size="small" tertiary @click="showExpanded = false">关闭</n-button>
+          <n-button size="small" type="primary" :loading="saving" @click="handleSave">保存</n-button>
+        </div>
+      </div>
+      <component :is="currentEditor" v-model="localNote.content" class="dynamic-editor overlay-editor" />
+    </div>
+  </div>
 </template>
 
 <script setup>
@@ -196,6 +215,7 @@ const localNote = reactive({
   categoryId: null,
   tagIds: []
 })
+const showExpanded = ref(false)
 
 const categoryStore = useCategoryStore()
 const tagStore = useTagStore()
@@ -590,11 +610,69 @@ const formatTime = (value) => {
 }
 
 /* ✅ 编辑器占据剩余空间 */
+.editor-row {
+  display: flex;
+  flex-direction: row;
+  width: 100%;
+  margin-top: 4px;
+}
+
 .dynamic-editor {
   flex: 1;
   min-height: 360px;
   overflow: auto;
   padding: 8px 0;
+}
+
+.overlay-editor {
+  min-height: 100%;
+  padding: 0;
+}
+
+.editor-overlay {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(15, 23, 42, 0.25);
+  backdrop-filter: blur(6px);
+  z-index: 2000;
+  padding: 16px;
+}
+
+.overlay-card {
+  width: min(1200px, 60vw);
+  height: 70vh;
+  background: #fff;
+  border-radius: 12px;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.12);
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  display: flex;
+  flex-direction: column;
+  padding: 18px;
+  gap: 12px;
+}
+
+.overlay-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.overlay-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 600;
+  color: #0f172a;
+}
+
+.overlay-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
 }
 
 .footer {

@@ -17,6 +17,7 @@
 <script setup>
 import { onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { NButton, NSlider, NColorPicker, NSpace } from 'naive-ui'
+import { fabric } from 'fabric'
 
 const DEFAULT_WIDTH = 720
 const DEFAULT_HEIGHT = 420
@@ -32,23 +33,12 @@ const emit = defineEmits(['update:modelValue'])
 
 const wrapperRef = ref(null)
 const canvasRef = ref(null)
-const ctx = ref(null)
-const drawing = ref(false)
-const activePointerId = ref(null)
+const fabricCanvas = ref(null)
 const lineWidth = ref(3)
 const strokeStyle = ref('#2dd4bf')
+const isApplyingRemote = ref(false)
 
 let resizeObserver = null
-
-const ensureContext = () => {
-  const canvas = canvasRef.value
-  if (!canvas) return null
-  const context = canvas.getContext('2d')
-  if (!context) return null
-  context.lineCap = 'round'
-  context.lineJoin = 'round'
-  return context
-}
 
 const getCanvasSize = () => {
   const wrapper = wrapperRef.value
@@ -61,150 +51,71 @@ const getCanvasSize = () => {
   return { width, height }
 }
 
-const drawFromSource = (source) => {
-  const canvas = canvasRef.value
-  const context = ctx.value
-  if (!canvas || !context) return
-  if (!source) {
-    const width = canvas.clientWidth || canvas.width
-    const height = canvas.clientHeight || canvas.height
-    context.clearRect(0, 0, width, height)
-    return
-  }
-  const image = new Image()
-  image.onload = () => {
-    const width = canvas.clientWidth || canvas.width
-    const height = canvas.clientHeight || canvas.height
-    context.clearRect(0, 0, width, height)
-    context.drawImage(image, 0, 0, width, height)
-  }
-  image.src = source
+const emitJson = () => {
+  if (!fabricCanvas.value || isApplyingRemote.value) return
+  const payload = JSON.stringify(fabricCanvas.value.toJSON())
+  emit('update:modelValue', payload)
 }
 
-const resizeCanvas = (preserve = true) => {
-  const canvas = canvasRef.value
-  if (!canvas) return
+const applyBrushStyle = () => {
+  if (!fabricCanvas.value || !fabricCanvas.value.freeDrawingBrush) return
+  fabricCanvas.value.freeDrawingBrush.color = strokeStyle.value
+  fabricCanvas.value.freeDrawingBrush.width = lineWidth.value
+}
+
+const resizeCanvas = () => {
+  if (!fabricCanvas.value) return
   const { width, height } = getCanvasSize()
-  const ratio = window.devicePixelRatio || 1
-  const context = ensureContext()
-  if (!context) return
-
-  const shouldSnapshot = preserve && (drawing.value || !props.modelValue)
-  let snapshot = null
-  if (shouldSnapshot) {
-    try {
-      snapshot = canvas.toDataURL('image/png')
-    } catch (error) {
-      snapshot = null
-    }
-  }
-
-  canvas.width = Math.floor(width * ratio)
-  canvas.height = Math.floor(height * ratio)
-  canvas.style.width = `${width}px`
-  canvas.style.height = `${height}px`
-
-  context.setTransform(1, 0, 0, 1, 0, 0)
-  context.scale(ratio, ratio)
-
-  ctx.value = context
-
-  if (props.modelValue && !drawing.value) {
-    drawFromSource(props.modelValue)
-  } else if (snapshot) {
-    drawFromSource(snapshot)
-  } else {
-    context.clearRect(0, 0, width, height)
-  }
+  fabricCanvas.value.setWidth(width)
+  fabricCanvas.value.setHeight(height)
+  fabricCanvas.value.renderAll()
 }
 
-const getPosition = (event) => {
-  const canvas = canvasRef.value
-  if (!canvas) return { x: 0, y: 0 }
-  const rect = canvas.getBoundingClientRect()
-  return {
-    x: event.clientX - rect.left,
-    y: event.clientY - rect.top
+const loadFromModel = (value) => {
+  if (!fabricCanvas.value) return
+  isApplyingRemote.value = true
+  if (!value) {
+    fabricCanvas.value.clear()
+    fabricCanvas.value.isDrawingMode = true
+    applyBrushStyle()
+    fabricCanvas.value.renderAll()
+    isApplyingRemote.value = false
+    return
   }
-}
-
-const beginStroke = (event) => {
-  if (!ctx.value) return
-  drawing.value = true
-  activePointerId.value = event.pointerId ?? null
   try {
-    canvasRef.value?.setPointerCapture?.(event.pointerId)
+    fabricCanvas.value.loadFromJSON(value, () => {
+      fabricCanvas.value.renderAll()
+      fabricCanvas.value.isDrawingMode = true
+      applyBrushStyle()
+      isApplyingRemote.value = false
+    })
   } catch (error) {
-    // ignore capture errors
-  }
-  ctx.value.beginPath()
-  const { x, y } = getPosition(event)
-  ctx.value.moveTo(x, y)
-  event.preventDefault()
-}
-
-const drawStroke = (event) => {
-  if (!drawing.value || !ctx.value) return
-  if (
-    activePointerId.value !== null &&
-    event.pointerId !== undefined &&
-    event.pointerId !== activePointerId.value
-  ) {
-    return
-  }
-  const { x, y } = getPosition(event)
-  ctx.value.strokeStyle = strokeStyle.value
-  ctx.value.lineWidth = lineWidth.value
-  ctx.value.lineCap = 'round'
-  ctx.value.lineJoin = 'round'
-  ctx.value.lineTo(x, y)
-  ctx.value.stroke()
-  event.preventDefault()
-}
-
-const releasePointer = () => {
-  if (canvasRef.value && activePointerId.value !== null) {
-    try {
-      canvasRef.value.releasePointerCapture(activePointerId.value)
-    } catch (error) {
-      // ignore release errors
-    }
-  }
-  activePointerId.value = null
-}
-
-const finishStroke = (shouldEmit, event) => {
-  if (!drawing.value || !ctx.value) return
-  if (
-    activePointerId.value !== null &&
-    event?.pointerId !== undefined &&
-    event.pointerId !== activePointerId.value
-  ) {
-    return
-  }
-  drawing.value = false
-  ctx.value.closePath()
-  releasePointer()
-  if (shouldEmit && canvasRef.value) {
-    const dataUrl = canvasRef.value.toDataURL('image/png')
-    emit('update:modelValue', dataUrl)
+    fabricCanvas.value.clear()
+    isApplyingRemote.value = false
   }
 }
 
-const endStroke = (event) => {
-  finishStroke(true, event)
-}
+const initCanvas = () => {
+  if (!canvasRef.value) return
+  const canvas = new fabric.Canvas(canvasRef.value, {
+    isDrawingMode: true,
+    selection: false
+  })
+  const { width, height } = getCanvasSize()
+  canvas.setWidth(width)
+  canvas.setHeight(height)
+  fabricCanvas.value = canvas
+  applyBrushStyle()
 
-const cancelStroke = (event) => {
-  finishStroke(true, event)
+  canvas.on('path:created', emitJson)
 }
 
 const handleClear = () => {
-  const canvas = canvasRef.value
-  if (!ctx.value || !canvas) return
-  const width = canvas.clientWidth || canvas.width
-  const height = canvas.clientHeight || canvas.height
-  ctx.value.clearRect(0, 0, width, height)
+  if (!fabricCanvas.value) return
+  fabricCanvas.value.clear()
+  fabricCanvas.value.isDrawingMode = true
+  applyBrushStyle()
+  fabricCanvas.value.renderAll()
   emit('update:modelValue', '')
 }
 
@@ -213,18 +124,8 @@ const handleWindowResize = () => {
 }
 
 onMounted(() => {
-  resizeCanvas(false)
+  initCanvas()
   window.addEventListener('resize', handleWindowResize)
-
-  const canvas = canvasRef.value
-  if (canvas) {
-    canvas.addEventListener('pointerdown', beginStroke)
-    canvas.addEventListener('pointermove', drawStroke)
-    canvas.addEventListener('pointerup', endStroke)
-    canvas.addEventListener('pointerleave', endStroke)
-    canvas.addEventListener('pointercancel', cancelStroke)
-    canvas.addEventListener('contextmenu', (event) => event.preventDefault())
-  }
 
   resizeObserver = new ResizeObserver(() => resizeCanvas())
   if (wrapperRef.value) {
@@ -232,31 +133,27 @@ onMounted(() => {
   }
 
   if (props.modelValue) {
-    drawFromSource(props.modelValue)
+    loadFromModel(props.modelValue)
   }
 })
 
 onBeforeUnmount(() => {
   window.removeEventListener('resize', handleWindowResize)
-  const canvas = canvasRef.value
-  if (canvas) {
-    canvas.removeEventListener('pointerdown', beginStroke)
-    canvas.removeEventListener('pointermove', drawStroke)
-    canvas.removeEventListener('pointerup', endStroke)
-    canvas.removeEventListener('pointerleave', endStroke)
-    canvas.removeEventListener('pointercancel', cancelStroke)
-  }
   resizeObserver?.disconnect()
   resizeObserver = null
+  fabricCanvas.value?.dispose()
 })
 
 watch(
   () => props.modelValue,
   (value) => {
-    if (drawing.value) return
-    drawFromSource(value)
+    if (!fabricCanvas.value) return
+    loadFromModel(value)
   }
 )
+
+watch(lineWidth, () => applyBrushStyle())
+watch(strokeStyle, () => applyBrushStyle())
 </script>
 
 <style scoped>

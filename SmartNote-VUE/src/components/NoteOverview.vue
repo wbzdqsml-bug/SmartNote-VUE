@@ -71,6 +71,9 @@ const formatTime = (value) => {
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 16px;
   width: 100%;
+  height: 640px;
+  overflow-y: auto;
+  padding-right: 4px;
 }
 
 .overview-card {
@@ -86,6 +89,9 @@ const formatTime = (value) => {
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
   cursor: pointer;
   box-sizing: border-box; /* 这一行必须有，确保 padding 包含在宽度内 */
+  height: 100%;
+  display: flex;
+  flex-direction: column;
 }
 
 .note-type {
@@ -106,6 +112,7 @@ const formatTime = (value) => {
   font-size: 13px;
   color: #6b7280;
   min-height: 36px;
+  flex: 1;
 }
 
 .note-footer {
