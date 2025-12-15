@@ -1,5 +1,6 @@
 ﻿<template>
-  <n-card class="note-editor" :bordered="false">
+  <div class="note-editor-wrapper" v-bind="$attrs">
+    <n-card class="note-editor" :bordered="false">
     <template v-if="note">
       <div class="title-row">
         <n-input
@@ -146,19 +147,20 @@
     </template>
   </n-card>
 
-  <div v-if="showExpanded" class="editor-overlay" @click.self="showExpanded = false">
-    <div class="overlay-card">
-      <div class="overlay-header">
-        <div class="overlay-title">
-          <span>{{ localNote.title || '放大编辑' }}</span>
-          <n-tag type="info" size="small">{{ currentTypeLabel }}</n-tag>
+    <div v-if="showExpanded" class="editor-overlay" @click.self="showExpanded = false">
+      <div class="overlay-card">
+        <div class="overlay-header">
+          <div class="overlay-title">
+            <span>{{ localNote.title || '放大编辑' }}</span>
+            <n-tag type="info" size="small">{{ currentTypeLabel }}</n-tag>
+          </div>
+          <div class="overlay-actions">
+            <n-button size="small" tertiary @click="showExpanded = false">关闭</n-button>
+            <n-button size="small" type="primary" :loading="saving" @click="handleSave">保存</n-button>
+          </div>
         </div>
-        <div class="overlay-actions">
-          <n-button size="small" tertiary @click="showExpanded = false">关闭</n-button>
-          <n-button size="small" type="primary" :loading="saving" @click="handleSave">保存</n-button>
-        </div>
+        <component :is="currentEditor" v-model="localNote.content" class="dynamic-editor overlay-editor" />
       </div>
-      <component :is="currentEditor" v-model="localNote.content" class="dynamic-editor overlay-editor" />
     </div>
   </div>
 </template>

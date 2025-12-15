@@ -4,6 +4,7 @@ import { createPinia } from 'pinia'
 import router from './router'
 import naive, { createDiscreteApi } from 'naive-ui'
 import './style.css'
+import 'katex/dist/katex.min.css'
 
 const app = createApp(App)
 const pinia = createPinia()

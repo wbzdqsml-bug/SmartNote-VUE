@@ -1,36 +1,34 @@
 ﻿<template>
   <div class="markdown-editor">
-    <n-split :default-size="0.6" :min="0.3" :max="0.8" class="split">
-      <template #1>
-        <div class="pane left-pane">
-          <div class="pane-card">
-            <n-input
-              ref="inputRef"
-              v-model:value="localValue"
-              type="textarea"
-              :placeholder="placeholder"
-              :autosize="false"
-              :rows="20"
-            />
-          </div>
-        </div>
-      </template>
-      <template #2>
-        <div class="pane preview-pane">
-          <div class="pane-card">
-            <n-scrollbar ref="previewScrollbar" class="preview">
-              <div class="preview-content" v-html="rendered"></div>
-            </n-scrollbar>
-          </div>
-        </div>
-      </template>
-    </n-split>
+    <div class="pane-card single-pane">
+      <div class="editor-header">
+        <span class="editor-title">{{ previewMode ? 'Markdown 预览' : 'Markdown 编辑' }}</span>
+        <n-button size="tiny" secondary strong @click="togglePreview">
+          {{ previewMode ? '返回编辑' : '预览' }}
+        </n-button>
+      </div>
+      <div v-if="!previewMode" class="editor-body">
+        <n-input
+          ref="inputRef"
+          v-model:value="localValue"
+          type="textarea"
+          :placeholder="placeholder"
+          :autosize="false"
+          :rows="20"
+        />
+      </div>
+      <div v-else class="preview-body">
+        <n-scrollbar class="preview">
+          <div class="preview-content" v-html="rendered"></div>
+        </n-scrollbar>
+      </div>
+    </div>
   </div>
 </template>
 
 <script setup>
-import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
-import { NInput, NSplit, NScrollbar } from 'naive-ui'
+import { computed, nextTick, ref, watch } from 'vue'
+import { NInput, NScrollbar, NButton } from 'naive-ui'
 import MarkdownIt from 'markdown-it'
 import markdownItKatex from 'markdown-it-katex'
 
@@ -49,13 +47,15 @@ const emit = defineEmits(['update:modelValue'])
 
 const localValue = ref(props.modelValue || '')
 const inputRef = ref(null)
-const previewScrollbar = ref(null)
+const previewMode = ref(false)
 
 const md = new MarkdownIt({
   html: true,
   linkify: true,
   breaks: true
-}).use(markdownItKatex)
+})
+  .enable(['table'])
+  .use(markdownItKatex)
 
 watch(
   () => props.modelValue,
@@ -79,42 +79,15 @@ const rendered = computed(() => {
   return html.replace(/\$(?=<span class="katex(?:-display)?)/g, '')
 })
 
-const syncPreviewScroll = () => {
-  const inputEl = inputRef.value?.$el?.querySelector('.n-input__textarea-el')
-  const scrollbarEl = previewScrollbar.value?.$el
-  if (!inputEl || !scrollbarEl) return
-  const container = scrollbarEl.querySelector('.n-scrollbar-container')
-  const content = scrollbarEl.querySelector('.n-scrollbar-content')
-  if (!container || !content) return
-  const maxInput =
-    (inputEl.scrollHeight || 0) - (inputEl.clientHeight || 0) || 1
-  const ratio = inputEl.scrollTop / maxInput
-  const maxPreview = (content.scrollHeight || 0) - (container.clientHeight || 0)
-  const target = ratio * maxPreview
-  container.scrollTop = target
-}
-
-const attachScrollSync = () => {
-  const inputEl = inputRef.value?.$el?.querySelector('.n-input__textarea-el')
-  if (inputEl) {
-    inputEl.addEventListener('scroll', syncPreviewScroll)
+const togglePreview = () => {
+  previewMode.value = !previewMode.value
+  if (!previewMode.value) {
+    nextTick(() => {
+      const inputEl = inputRef.value?.$el?.querySelector('.n-input__textarea-el')
+      inputEl?.focus()
+    })
   }
 }
-
-const detachScrollSync = () => {
-  const inputEl = inputRef.value?.$el?.querySelector('.n-input__textarea-el')
-  if (inputEl) {
-    inputEl.removeEventListener('scroll', syncPreviewScroll)
-  }
-}
-
-onMounted(() => {
-  attachScrollSync()
-})
-
-onBeforeUnmount(() => {
-  detachScrollSync()
-})
 </script>
 
 <style scoped>
@@ -123,20 +96,6 @@ onBeforeUnmount(() => {
 .markdown-editor {
   height: 640px;
   min-height: 640px;
-  display: flex;
-  flex-direction: column;
-  min-height: 0;
-}
-
-.split {
-  height: 100%;
-  flex: 1;
-  overflow: hidden;
-  min-height: 0;
-}
-
-.pane {
-  height: 100%;
   display: flex;
   flex-direction: column;
   min-height: 0;
@@ -159,7 +118,29 @@ onBeforeUnmount(() => {
   height: 100%;
 }
 
-.left-pane :deep(.n-input) {
+.editor-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 12px;
+  border-bottom: 1px solid rgba(15, 23, 42, 0.06);
+  background: #f8fafc;
+}
+
+.editor-title {
+  font-weight: 600;
+  color: #0f172a;
+}
+
+.editor-body {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  padding: 12px;
+}
+
+.editor-body :deep(.n-input) {
   flex: 1;
   height: 100%;
   display: flex;
@@ -167,14 +148,14 @@ onBeforeUnmount(() => {
   min-height: 0;
 }
 
-.left-pane :deep(.n-input__textarea) {
+.editor-body :deep(.n-input__textarea) {
   height: 100%;
   flex: 1;
   min-height: 0;
   overflow: auto;
 }
 
-.left-pane :deep(.n-input__textarea-el) {
+.editor-body :deep(.n-input__textarea-el) {
   height: 100%;
   min-height: 0;
   flex: 1;
@@ -186,6 +167,12 @@ onBeforeUnmount(() => {
   padding: 12px 16px;
   background: linear-gradient(180deg, #f8fafc 0%, #f1f5f9 100%);
   height: 100%;
+}
+
+.preview-body {
+  flex: 1;
+  min-height: 0;
+  display: flex;
 }
 
 .preview-content {
@@ -210,5 +197,24 @@ onBeforeUnmount(() => {
   padding: 2px 6px;
   border-radius: 6px;
   font-family: 'Fira Code', 'JetBrains Mono', monospace;
+}
+
+.preview-content table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 12px 0;
+  font-size: 13px;
+}
+
+.preview-content th,
+.preview-content td {
+  border: 1px solid rgba(15, 23, 42, 0.12);
+  padding: 8px 10px;
+  text-align: left;
+}
+
+.preview-content th {
+  background: #f8fafc;
+  font-weight: 600;
 }
 </style>
