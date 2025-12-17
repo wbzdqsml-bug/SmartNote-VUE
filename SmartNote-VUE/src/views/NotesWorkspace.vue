@@ -1,11 +1,5 @@
 <template>
   <div class="notes-page">
-    <quick-actions
-      @create="openCreate"
-      @import="handleImport"
-      @open-ai="goToAiPage"
-    />
-
     <div class="notes-layout">
       <note-list
         class="note-panel"
@@ -23,6 +17,12 @@
         @filter-change="handleFilterChange"
       />
       <note-editor
+        class="note-panel editor-panel"
+        :note="selectedNote"
+        :saving="noteSaving"
+        @update-note="handleUpdateNote"
+      />
+      <note-sidebar
         class="note-panel"
         :note="selectedNote"
         :saving="noteSaving"
@@ -37,9 +37,9 @@
 import { computed, nextTick, onMounted, ref, watch, inject } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useMessage } from 'naive-ui'
-import QuickActions from '@/components/QuickActions.vue'
 import NoteList from '@/components/NoteList.vue'
 import NoteEditor from '@/components/NoteEditor.vue'
+import NoteSidebar from '@/components/NoteSidebar.vue'
 import noteApi from '@/api/note'
 import { noteTypeMap } from '@/constants/noteTypes'
 import { useCategoryStore } from '@/store/categoryStore'
@@ -93,6 +93,23 @@ const normaliseNote = (raw) => {
     raw.updatedAt ||
     raw.updated_at ||
     createdAt
+  
+  const tags = Array.isArray(raw.tags ?? raw.Tags)
+      ? (raw.tags ?? raw.Tags).map((item) => ({
+          id: normaliseId(item.id ?? item.Id ?? item.tagId ?? item.TagId),
+          name: item.name ?? item.Name,
+          color: item.color || item.Color || ''
+        }))
+      : []
+  
+  const tagIds = Array.isArray(raw.tags ?? raw.Tags)
+      ? (raw.tags ?? raw.Tags)
+          .map((item) => normaliseId(item.id ?? item.tagId ?? item.TagId))
+          .filter((id) => id !== null && id !== undefined)
+      : Array.isArray(raw.tagIds)
+        ? raw.tagIds.map((id) => normaliseId(id)).filter((id) => id !== null && id !== undefined)
+        : []
+
   return {
     ...raw,
     id,
@@ -111,20 +128,8 @@ const normaliseNote = (raw) => {
       raw.categoryName ?? raw.CategoryName ?? raw.category?.name ?? raw.Category?.Name ?? '',
     categoryColor:
       raw.categoryColor ?? raw.CategoryColor ?? raw.category?.color ?? raw.Category?.Color ?? '',
-    tags: Array.isArray(raw.tags ?? raw.Tags)
-      ? (raw.tags ?? raw.Tags).map((item) => ({
-          id: normaliseId(item.id ?? item.Id ?? item.tagId ?? item.TagId),
-          name: item.name ?? item.Name,
-          color: item.color || item.Color || ''
-        }))
-      : [],
-    tagIds: Array.isArray(raw.tags ?? raw.Tags)
-      ? (raw.tags ?? raw.Tags)
-          .map((item) => normaliseId(item.id ?? item.tagId ?? item.TagId))
-          .filter((id) => id !== null && id !== undefined)
-      : Array.isArray(raw.tagIds)
-        ? raw.tagIds.map((id) => normaliseId(id)).filter((id) => id !== null && id !== undefined)
-        : []
+    tags,
+    tagIds,
   }
 }
 
@@ -161,7 +166,7 @@ const loadNotes = async (focusId = selectedNoteId.value) => {
     if (focus !== null && list.some((item) => item.id === focus)) {
       selectedNoteId.value = focus
     } else {
-      selectedNoteId.value = list[0].id
+      selectedNoteId.value = list[0]?.id
     }
   } catch (error) {
     console.error('[NotesWorkspace] loadNotes error:', error)
@@ -178,26 +183,30 @@ const refreshNotes = () => {
 const handleSelectNote = (note) => {
   selectedNoteId.value = normaliseId(note?.id)
   nextTick(() => {
-    router.replace({ path: route.path, query: { ...route.query, focus: selectedNoteId.value } })
+    if (selectedNoteId.value) {
+      router.replace({ path: route.path, query: { ...route.query, focus: selectedNoteId.value } })
+    }
   })
 }
 
 const handleUpdateNote = async ({ id, payload, tagsChanged = false }) => {
-  if (!id) return
+  if (!id || !selectedNote.value) return
   noteSaving.value = true
-  try {
-    const body = {
-      id,
-      title: payload.title,
-      contentJson: payload.contentJson ?? payload.content,
-      content: payload.content ?? payload.contentJson
-    }
-    if ('categoryId' in payload) {
-      body.categoryId = payload.categoryId ?? null
-    }
 
+  const currentNote = selectedNote.value
+  const body = {
+      id,
+      title: payload.title ?? currentNote.title,
+      contentJson: payload.contentJson ?? payload.content ?? currentNote.contentJson,
+      content: payload.content ?? payload.contentJson ?? currentNote.content,
+  }
+  if ('categoryId' in payload) {
+    body.categoryId = payload.categoryId ?? null
+  }
+
+  try {
     await noteApi.update(id, body)
-    if (tagsChanged) {
+    if (tagsChanged && 'tagIds' in payload) {
       const tagIds = Array.isArray(payload.tagIds)
         ? payload.tagIds.map((item) => normaliseId(item)).filter((item) => item !== null)
         : []
@@ -229,29 +238,8 @@ const handleSoftDelete = async (id) => {
   }
 }
 
-const handleSearch = (value) => {
-  keyword.value = value?.trim() ?? ''
-}
-
 const handleFilterChange = () => {
   loadNotes(selectedNoteId.value)
-}
-
-const handleImport = () => {
-  message.info('导入功能开发中，敬请期待。')
-}
-
-const goToAiPage = () => {
-  router.push('/ai')
-}
-
-const openCreateNote = inject('openCreateNote', null)
-const openCreate = () => {
-  if (typeof openCreateNote === 'function') {
-    openCreateNote()
-  } else {
-    message.info('创建功能不可用，请稍后重试')
-  }
 }
 
 onMounted(async () => {
@@ -269,32 +257,68 @@ watch(
 
 <style scoped>
 .notes-page {
-  display: flex;
-  flex-direction: column;
-  gap: 18px;
+  width: 100%;
+  height: 100%;
+  padding: 16px; /* A bit of padding for the whole page */
+  box-sizing: border-box;
+  background-color: #f8fafc; /* A slightly off-white background */
 }
 
 .notes-layout {
   display: grid;
-  grid-template-columns: minmax(320px, 360px) minmax(480px, 1fr);
-  gap: 24px;
-}
-
-.note-panel {
-  min-height: 420px;
-}
-
-.section-card {
+  /* Proportional columns: list and sidebar take up a flexible portion, editor takes the most */
+  grid-template-columns: minmax(280px, 1.5fr) 3fr minmax(260px, 1.5fr);
+  gap: 16px;
+  height: 100%;
   width: 100%;
 }
 
-@media (max-width: 1200px) {
+.note-panel {
+  height: 100%;
+  min-height: 480px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  border-radius: 12px;
+  background-color: #ffffff;
+  border: 1px solid #eef2f8;
+}
+
+/* Medium screens (e.g., tablets, small laptops) */
+@media (max-width: 1024px) {
   .notes-layout {
+    /* Switch to 2 columns, hide the rightmost sidebar */
+    grid-template-columns: minmax(280px, 320px) 1fr;
+  }
+  .notes-layout > :nth-child(3) {
+    display: none; 
+  }
+}
+
+/* Small screens (e.g., mobile) */
+@media (max-width: 768px) {
+  .notes-page {
+    padding: 0;
+  }
+  .notes-layout {
+    /* Stack the note list and editor vertically */
     grid-template-columns: 1fr;
+    grid-template-rows: minmax(300px, 40vh) 1fr; /* List gets 40% of the height */
+    gap: 0;
+  }
+  
+  .note-panel {
+    border-radius: 0;
+    border-left: none;
+    border-right: none;
   }
 
-  .note-panel {
-    min-height: 360px;
+  /* We still hide the sidebar on mobile */
+  .notes-layout > :nth-child(3) {
+    display: none; 
   }
+
+  /* When a note is selected, we might want to hide the list and show the editor */
+  /* This would require JS, but for now, we just stack them. */
 }
 </style>

@@ -4,7 +4,7 @@
   </div>
   <div v-else class="overview-grid">
     <n-card
-      v-for="note in limitedNotes"
+      v-for="note in notes"
       :key="note.id"
       class="overview-card"
       hoverable
@@ -31,17 +31,7 @@ const props = defineProps({
   notes: {
     type: Array,
     default: () => []
-  },
-  limit: {
-    type: Number,
-    default: 6 // 默认只显示6个，多的不显示（如果想显示全部，可以把这个数字改很大）
   }
-})
-
-// 修复：使用 slice 确保只取前 limit 个笔记
-const limitedNotes = computed(() => {
-  if (!props.notes) return []
-  return props.notes.slice(0, props.limit)
 })
 
 const noteTypeLabel = (type) => noteTypeMap[type] || '笔记'
@@ -68,30 +58,28 @@ const formatTime = (value) => {
 <style scoped>
 .overview-grid {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  /* Make the grid responsive: create as many 300px columns as fit, and stretch them to fill space */
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
   gap: 16px;
   width: 100%;
-  height: 640px;
-  overflow-y: auto;
-  padding-right: 4px;
 }
 
 .overview-card {
-  /* --- 核心布局代码 --- */
-  /* 计算公式：(100%总宽 - 16px间距) / 2 = 50% - 8px 
-     flex-grow: 0 (不自动放大)
-     flex-shrink: 0 (不自动缩小)
-  */
   border-radius: 12px;
   border: 1px solid #e5e7eb;
   background: #f9fafb;
   padding: 12px;
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
   cursor: pointer;
-  box-sizing: border-box; /* 这一行必须有，确保 padding 包含在宽度内 */
-  height: 100%;
+  box-sizing: border-box;
   display: flex;
   flex-direction: column;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.overview-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
 }
 
 .note-type {
@@ -105,6 +93,10 @@ const formatTime = (value) => {
   font-size: 16px;
   font-weight: 600;
   color: #111827;
+  /* Truncate long titles */
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .note-preview {
@@ -113,6 +105,12 @@ const formatTime = (value) => {
   color: #6b7280;
   min-height: 36px;
   flex: 1;
+  /* Clamp preview text to 2 lines */
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
 }
 
 .note-footer {
@@ -120,5 +118,6 @@ const formatTime = (value) => {
   justify-content: space-between;
   color: #6b7280;
   font-size: 12px;
+  margin-top: auto; /* Push footer to the bottom */
 }
 </style>

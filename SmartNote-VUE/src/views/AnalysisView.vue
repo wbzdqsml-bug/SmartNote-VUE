@@ -68,12 +68,27 @@
         </n-gi>
       </n-grid>
     </n-spin>
+    
+    <n-modal v-model:show="showNotesModal" preset="card" style="width: 600px" :title="modalTitle">
+      <n-spin :show="modalLoading">
+        <n-list hoverable clickable>
+          <n-list-item v-for="note in modalNotes" :key="note.id" @click="navigateToNote(note)">
+            <template #prefix>
+              <n-tag type="info" size="small">{{ note.typeName || '笔记' }}</n-tag>
+            </template>
+            {{ note.title || '未命名笔记' }}
+          </n-list-item>
+        </n-list>
+        <n-empty v-if="!modalNotes.length && !modalLoading" description="当天没有找到笔记" style="margin-top: 24px;" />
+      </n-spin>
+    </n-modal>
   </div>
 </template>
 
 <script setup>
 import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref } from 'vue'
-import { NButton, NCard, NGi, NGrid, NSpin, useMessage } from 'naive-ui'
+import { useRouter } from 'vue-router'
+import { NButton, NCard, NGi, NGrid, NSpin, NModal, NList, NListItem, NTag, NEmpty, useMessage } from 'naive-ui'
 import * as echarts from 'echarts/core'
 import { HeatmapChart, LineChart, PieChart, BarChart } from 'echarts/charts'
 import {
@@ -85,6 +100,8 @@ import {
 } from 'echarts/components'
 import { CanvasRenderer } from 'echarts/renderers'
 import analysisApi from '@/api/analysis'
+import noteApi from '@/api/note'
+import { noteTypeMap } from '@/constants/noteTypes'
 
 echarts.use([
   HeatmapChart,
@@ -99,21 +116,25 @@ echarts.use([
   CanvasRenderer
 ])
 
+const router = useRouter()
 const message = useMessage()
 const emptyText = '暂无数据，快去记一条笔记吧～'
 
+// --- Refs for chart containers ---
 const heatmapRef = ref(null)
 const trendRef = ref(null)
 const categoryRef = ref(null)
 const tagRef = ref(null)
 const workspaceRef = ref(null)
 
+// --- Data state ---
 const heatmapData = ref([])
 const trendData = ref([])
 const categoryData = ref([])
 const tagData = ref([])
 const workspaceData = ref([])
 
+// --- Loading state ---
 const loadingState = reactive({
   heatmap: false,
   trend: false,
@@ -121,9 +142,15 @@ const loadingState = reactive({
   tags: false,
   workspace: false
 })
-
 const isLoading = computed(() => Object.values(loadingState).some(Boolean))
 
+// --- Modal state ---
+const showNotesModal = ref(false)
+const modalLoading = ref(false)
+const modalTitle = ref('')
+const modalNotes = ref([])
+
+// --- Chart instances ---
 const chartMap = {
   heatmap: null,
   trend: null,
@@ -132,19 +159,22 @@ const chartMap = {
   workspace: null
 }
 
+// --- Data Processing & Normalization ---
 const resolveData = (response) => {
   if (!response) return []
   const payload = response.data ?? []
-  if (payload && typeof payload === 'object' && 'data' in payload) {
-    return payload.data ?? []
-  }
-  return payload ?? []
+  return payload.data ?? payload ?? []
 }
 
-const toNumber = (value) => {
-  const num = Number(value)
-  return Number.isNaN(num) ? 0 : num
-}
+const toNumber = (value) => Number.isNaN(Number(value)) ? 0 : Number(value)
+
+const normaliseHeatmap = (list) =>
+  (Array.isArray(list) ? list : []).map((item) => ({
+    date: item.date || item.day || '',
+    count: toNumber(item.count ?? item.value ?? 0),
+    // ASSUMPTION: API now returns a 'notes' array with titles
+    notes: (item.notes || []).map(n => n.title || '').filter(Boolean) 
+  })).filter((item) => item.date)
 
 const formatMonthDay = (value) => {
   if (!value) return ''
@@ -154,14 +184,6 @@ const formatMonthDay = (value) => {
   const day = `${date.getDate()}`.padStart(2, '0')
   return `${month}-${day}`
 }
-
-const normaliseHeatmap = (list) =>
-  (Array.isArray(list) ? list : [])
-    .map((item) => ({
-      date: item.date || item.day || item.dateString || '',
-      count: toNumber(item.count ?? item.value ?? 0)
-    }))
-    .filter((item) => item.date)
 
 const normaliseTrend = (list) =>
   (Array.isArray(list) ? list : [])
@@ -197,69 +219,106 @@ const normaliseWorkspace = (list) =>
     percentage: Number.isFinite(Number(item.percentage)) ? Number(item.percentage) : null
   }))
 
-const initCharts = () => {
-  if (heatmapRef.value && !chartMap.heatmap) {
-    chartMap.heatmap = echarts.init(heatmapRef.value)
-  }
-  if (trendRef.value && !chartMap.trend) {
-    chartMap.trend = echarts.init(trendRef.value)
-  }
-  if (categoryRef.value && !chartMap.category) {
-    chartMap.category = echarts.init(categoryRef.value)
-  }
-  if (tagRef.value && !chartMap.tag) {
-    chartMap.tag = echarts.init(tagRef.value)
-  }
-  if (workspaceRef.value && !chartMap.workspace) {
-    chartMap.workspace = echarts.init(workspaceRef.value)
-  }
-}
 
+// --- Chart Rendering ---
 const renderHeatmapChart = () => {
-  if (!chartMap.heatmap) return
-  const calendarYear =
-    (heatmapData.value[0]?.date && String(heatmapData.value[0].date).slice(0, 4)) ||
-    new Date().getFullYear()
-  const seriesData = heatmapData.value.map((item) => [item.date, item.count])
-  const maxCount =
-    seriesData.length > 0 ? Math.max(...seriesData.map((item) => item[1] ?? 0), 0) || 1 : 1
+  if (!chartMap.heatmap || !heatmapRef.value) return;
 
-  chartMap.heatmap.clear()
-  chartMap.heatmap.setOption(
-    {
-      tooltip: {
-        position: 'top',
-        formatter: ({ value }) => `${value[0]}：${value[1]} 次`
-      },
-      visualMap: {
-        show: false,
-        min: 0,
-        max: maxCount,
-        inRange: {
-          color: ['#e0f3ff', '#4caf50']
-        }
-      },
-      calendar: {
-        range: String(calendarYear),
-        cellSize: [16, 16],
-        splitLine: { show: false },
-        itemStyle: {
-          borderWidth: 1,
-          borderColor: '#f1f5f9'
-        },
-        monthLabel: { nameMap: 'cn' },
-        dayLabel: { nameMap: 'cn' }
-      },
-      series: [
-        {
-          type: 'heatmap',
-          coordinateSystem: 'calendar',
-          data: seriesData
-        }
-      ]
+  // 1. Get all unique years from data, sorted descending
+  const years = [...new Set(heatmapData.value.map(item => item.date.slice(0, 4)))]
+    .sort((a, b) => b.localeCompare(a)); 
+
+  // If no data, prepare to show a single, empty calendar for the current year
+  if (years.length === 0) {
+    years.push(String(new Date().getFullYear()));
+    chartMap.heatmap.clear(); // Clear previous data
+    heatmapRef.value.style.height = '300px'; // Reset to default height
+  }
+
+  const seriesData = heatmapData.value.map(item => ({
+    value: [item.date, item.count],
+    notes: item.notes
+  }));
+
+  const maxCount = Math.max(...(heatmapData.value.map(item => item.count)), 0) || 1;
+
+  // 2. Create calendar components for each year
+  const calendarComponents = years.map((year, index) => ({
+    top: 90 + index * 190, // A little more top margin
+    left: 'center',
+    range: year,
+    cellSize: ['auto', 13],
+    splitLine: { 
+      show: true, 
+      lineStyle: { color: '#fff', width: 4, type: 'solid' } 
     },
-    true
-  )
+    itemStyle: { 
+      borderWidth: 1,
+      borderColor: '#fff'
+    },
+    yearLabel: { 
+      show: true, 
+      position: 'top', 
+      margin: 25, // Reduced margin to bring it down
+      color: '#333', 
+      fontSize: 16, 
+      fontWeight: 'bold' 
+    },
+    monthLabel: { nameMap: 'cn', color: '#666' },
+    dayLabel: { nameMap: 'cn', firstDay: 1, color: '#666' }
+  }));
+
+  // 3. Create a heatmap series for each calendar
+  const seriesComponents = years.map((year, index) => ({
+    type: 'heatmap',
+    coordinateSystem: 'calendar',
+    calendarIndex: index,
+    data: seriesData // ECharts will filter data based on calendar range
+  }));
+  
+  // 4. Dynamically adjust chart container height and resize the chart
+  const newHeight = years.length * 190 + 70; // Adjust height to match
+  if (heatmapRef.value.style.height !== `${newHeight}px`) {
+      heatmapRef.value.style.height = `${newHeight}px`;
+      // Defer resize to allow DOM to update
+      nextTick(() => {
+        chartMap.heatmap.resize();
+      });
+  }
+
+  chartMap.heatmap.setOption({
+    tooltip: {
+      position: 'top',
+      formatter: (params) => {
+        // params.data can be undefined for empty cells
+        if (!params.data || !params.data.value) return ''; 
+        const [date, count] = params.data.value;
+        const notes = params.data.notes || [];
+        let tooltipText = `${date}<br/>活动次数：${count}`;
+        if (notes.length) {
+          tooltipText += `<hr style="margin: 5px 0;" />${notes.slice(0, 5).join('<br/>')}`;
+          if (notes.length > 5) {
+            tooltipText += '<br/>...';
+          }
+        }
+        return tooltipText;
+      }
+    },
+    visualMap: {
+        show: true, 
+        type: 'continuous', 
+        min: 0, 
+        max: maxCount, 
+        calculable: true,
+        orient: 'horizontal', 
+        left: 'center', 
+        bottom: 10,
+        inRange: { color: ['#ebfaff', '#cceeff', '#99ddff', '#66ccff', '#33bbff', '#00aaff'] }, // More granular colors
+        textStyle: { color: '#333' }
+    },
+    calendar: calendarComponents,
+    series: seriesComponents
+  }, true);
 }
 
 const renderTrendChart = () => {
@@ -451,6 +510,51 @@ const renderAllCharts = () => {
   renderWorkspaceChart()
 }
 
+
+// --- API & Event Handlers ---
+
+const handleHeatmapClick = async (params) => {
+  const date = params.data?.value?.[0]
+  if (!date) return
+
+  modalTitle.value = `${date} 的笔记`
+  showNotesModal.value = true
+  modalLoading.value = true
+  modalNotes.value = []
+
+  try {
+    const res = await noteApi.filter({ date })
+    // The full note object from filter might be different, let's normalize it
+    modalNotes.value = (resolveData(res) || []).map(note => ({
+      ...note,
+      typeName: noteTypeMap[note.type] || '笔记'
+    }))
+  } catch (error) {
+    message.error('获取当天笔记列表失败')
+  } finally {
+    modalLoading.value = false
+  }
+}
+
+const initCharts = () => {
+  if (heatmapRef.value && !chartMap.heatmap) {
+    chartMap.heatmap = echarts.init(heatmapRef.value)
+    chartMap.heatmap.on('click', handleHeatmapClick)
+  }
+  if (trendRef.value && !chartMap.trend) {
+    chartMap.trend = echarts.init(trendRef.value)
+  }
+  if (categoryRef.value && !chartMap.category) {
+    chartMap.category = echarts.init(categoryRef.value)
+  }
+  if (tagRef.value && !chartMap.tag) {
+    chartMap.tag = echarts.init(tagRef.value)
+  }
+  if (workspaceRef.value && !chartMap.workspace) {
+    chartMap.workspace = echarts.init(workspaceRef.value)
+  }
+}
+
 const fetchAnalysisData = async () => {
   Object.keys(loadingState).forEach((key) => {
     loadingState[key] = true
@@ -487,6 +591,12 @@ const refreshData = () => {
   fetchAnalysisData()
 }
 
+const navigateToNote = (note) => {
+  if (!note || !note.id) return
+  router.push(`/notes?focus=${note.id}`)
+  showNotesModal.value = false
+}
+
 const handleResize = () => {
   Object.values(chartMap).forEach((chart) => {
     chart?.resize()
@@ -507,6 +617,7 @@ onBeforeUnmount(() => {
     chartMap[key] = null
   })
 })
+
 </script>
 
 <style scoped>

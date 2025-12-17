@@ -1,220 +1,527 @@
-﻿<template>
-  <div class="canvas-board">
-    <div class="toolbar">
-      <span>手写画板</span>
-      <n-space size="small">
-        <n-color-picker v-model:value="strokeStyle" size="small" />
-        <n-slider v-model:value="lineWidth" :min="1" :max="12" style="width: 120px" />
-        <n-button size="small" tertiary @click="handleClear">清除</n-button>
-      </n-space>
+<template>
+  <div class="canvas-board-container">
+    <!-- Toolbar -->
+    <div class="canvas-toolbar">
+      <div class="tool-group">
+        <n-tooltip trigger="hover">
+          <template #trigger>
+            <n-button @click="setTool('pen')" :type="activeTool === 'pen' ? 'primary' : 'default'" circle>
+              <n-icon :component="PenIcon" />
+            </n-button>
+          </template>
+          画笔
+        </n-tooltip>
+        <n-tooltip trigger="hover">
+          <template #trigger>
+            <n-button @click="setTool('eraser')" :type="activeTool === 'eraser' ? 'primary' : 'default'" circle>
+              <n-icon :component="EraserIcon" />
+            </n-button>
+          </template>
+          橡皮擦
+        </n-tooltip>
+      </div>
+
+      <div class="tool-group-divider"></div>
+
+      <!-- Brush/Color Settings -->
+      <div class="tool-group">
+        <n-popover trigger="click" placement="bottom-start" style="padding: 12px 16px; border-radius: 8px;">
+          <template #trigger>
+            <n-button circle>
+              <div class="color-swatch" :style="{ backgroundColor: penOptions.color }"></div>
+            </n-button>
+          </template>
+          <div class="option-group">
+            <label>画笔颜色</label>
+            <n-color-picker v-model:value="penOptions.color" :show-alpha="false" />
+          </div>
+        </n-popover>
+        <n-popover trigger="click" placement="bottom" style="width: 200px; padding: 12px 16px; border-radius: 8px;">
+          <template #trigger>
+            <n-button>{{ penOptions.width }}px</n-button>
+          </template>
+          <div class="option-group">
+            <label>画笔粗细</label>
+            <n-slider v-model:value="penOptions.width" :min="1" :max="50" />
+          </div>
+        </n-popover>
+        <n-popover trigger="click" placement="bottom" style="width: 200px; padding: 12px 16px; border-radius: 8px;">
+          <template #trigger>
+            <n-button>{{ eraserOptions.width }}px</n-button>
+          </template>
+          <div class="option-group">
+            <label>橡皮擦大小</label>
+            <n-slider v-model:value="eraserOptions.width" :min="1" :max="100" />
+          </div>
+        </n-popover>
+      </div>
+
+      <div class="tool-group-divider"></div>
+
+      <!-- Actions -->
+      <div class="tool-group">
+        <n-tooltip trigger="hover">
+          <template #trigger>
+            <n-button @click="clearCanvas" circle>
+              <n-icon :component="ClearIcon" />
+            </n-button>
+          </template>
+          清空画板
+        </n-tooltip>
+        <n-tooltip trigger="hover">
+          <template #trigger>
+            <n-button @click="downloadCanvas" circle>
+              <n-icon :component="DownloadIcon" />
+            </n-button>
+          </template>
+          下载为PNG
+        </n-tooltip>
+      </div>
     </div>
-    <div class="board-wrapper" ref="wrapperRef">
-      <canvas ref="canvasRef" class="board"></canvas>
+
+    <!-- Canvas Area -->
+    <div class="canvas-wrapper" ref="canvasWrapperRef">
+      <canvas ref="canvasElRef"></canvas>
     </div>
   </div>
 </template>
 
 <script setup>
-import { onBeforeUnmount, onMounted, ref, watch } from 'vue'
-import { NButton, NSlider, NColorPicker, NSpace } from 'naive-ui'
-import { fabric } from 'fabric'
 
-const DEFAULT_WIDTH = 720
-const DEFAULT_HEIGHT = 420
+import { ref, onMounted, onBeforeUnmount, watch, markRaw, nextTick } from 'vue';
 
-const props = defineProps({
-  modelValue: {
-    type: String,
-    default: ''
-  }
-})
+import { fabric } from 'fabric';
 
-const emit = defineEmits(['update:modelValue'])
+import { NButton, NIcon, NColorPicker, NSlider, NTooltip, NPopover } from 'naive-ui';
 
-const wrapperRef = ref(null)
-const canvasRef = ref(null)
-const fabricCanvas = ref(null)
-const lineWidth = ref(3)
-const strokeStyle = ref('#2dd4bf')
-const isApplyingRemote = ref(false)
+import {
 
-let resizeObserver = null
+  BrushOutline as PenIcon,
 
-const getCanvasSize = () => {
-  const wrapper = wrapperRef.value
-  if (!wrapper) {
-    return { width: DEFAULT_WIDTH, height: DEFAULT_HEIGHT }
-  }
-  const rect = wrapper.getBoundingClientRect()
-  const width = Math.max(rect.width || wrapper.clientWidth || DEFAULT_WIDTH, 320)
-  const height = Math.max(rect.height || wrapper.clientHeight || DEFAULT_HEIGHT, 320)
-  return { width, height }
-}
+  TrashBinOutline as ClearIcon,
 
-const emitJson = () => {
-  if (!fabricCanvas.value || isApplyingRemote.value) return
-  const payload = JSON.stringify(fabricCanvas.value.toJSON())
-  emit('update:modelValue', payload)
-}
+  DownloadOutline as DownloadIcon,
 
-const applyBrushStyle = () => {
-  if (!fabricCanvas.value || !fabricCanvas.value.freeDrawingBrush) return
-  fabricCanvas.value.freeDrawingBrush.color = strokeStyle.value
-  fabricCanvas.value.freeDrawingBrush.width = lineWidth.value
-}
+  CutOutline as EraserIcon
 
-const resizeCanvas = () => {
-  if (!fabricCanvas.value) return
-  const { width, height } = getCanvasSize()
-  fabricCanvas.value.setWidth(width)
-  fabricCanvas.value.setHeight(height)
-  fabricCanvas.value.renderAll()
-}
+} from '@vicons/ionicons5';
 
-const loadFromModel = (value) => {
-  if (!fabricCanvas.value) return
-  isApplyingRemote.value = true
-  if (!value) {
-    fabricCanvas.value.clear()
-    fabricCanvas.value.isDrawingMode = true
-    applyBrushStyle()
-    fabricCanvas.value.renderAll()
-    isApplyingRemote.value = false
-    return
-  }
-  try {
-    fabricCanvas.value.loadFromJSON(value, () => {
-      fabricCanvas.value.renderAll()
-      fabricCanvas.value.isDrawingMode = true
-      applyBrushStyle()
-      isApplyingRemote.value = false
-    })
-  } catch (error) {
-    fabricCanvas.value.clear()
-    isApplyingRemote.value = false
-  }
-}
+
+
+const props = defineProps({ modelValue: { type: String, default: '' } });
+
+const emit = defineEmits(['update:modelValue']);
+
+
+
+// Refs for DOM elements and Fabric canvas
+
+const canvasWrapperRef = ref(null);
+
+const canvasElRef = ref(null);
+
+const canvas = ref(null);
+
+let resizeObserver = null;
+
+
+
+// Tool states
+
+const activeTool = ref('pen');
+
+const penOptions = ref({ color: '#e01e5a', width: 5 });
+
+const eraserOptions = ref({ width: 20 });
+
+
+
+// Initialize Fabric.js canvas
 
 const initCanvas = () => {
-  if (!canvasRef.value) return
-  const canvas = new fabric.Canvas(canvasRef.value, {
-    isDrawingMode: true,
-    selection: false
-  })
-  const { width, height } = getCanvasSize()
-  canvas.setWidth(width)
-  canvas.setHeight(height)
-  fabricCanvas.value = canvas
-  applyBrushStyle()
 
-  canvas.on('path:created', emitJson)
-}
+  if (!canvasWrapperRef.value) return;
 
-const handleClear = () => {
-  if (!fabricCanvas.value) return
-  fabricCanvas.value.clear()
-  fabricCanvas.value.isDrawingMode = true
-  applyBrushStyle()
-  fabricCanvas.value.renderAll()
-  emit('update:modelValue', '')
-}
+  const { width, height } = canvasWrapperRef.value.getBoundingClientRect();
 
-const handleWindowResize = () => {
-  resizeCanvas()
-}
+  const fabricCanvas = new fabric.Canvas(canvasElRef.value, {
+
+    width,
+
+    height,
+
+    backgroundColor: '#ffffff',
+
+    isDrawingMode: true
+
+  });
+
+
+
+  canvas.value = markRaw(fabricCanvas);
+
+  setTool(activeTool.value);
+
+  loadFromJSON(props.modelValue);
+
+
+
+  // Canvas event listeners to save state after drawing or modification
+
+  const saveState = () => {
+
+    if (!canvas.value) return;
+
+    const json = JSON.stringify(canvas.value.toJSON());
+
+    emit('update:modelValue', json);
+
+  };
+
+  fabricCanvas.on('path:created', saveState);
+
+  fabricCanvas.on('object:modified', saveState);
+
+};
+
+
+
+// Tool selection logic
+
+const setTool = (tool) => {
+
+  activeTool.value = tool;
+
+  const fabricCanvas = canvas.value;
+
+  if (!fabricCanvas) return;
+
+
+
+  fabricCanvas.isDrawingMode = true;
+
+  if (tool === 'pen') {
+
+    fabricCanvas.freeDrawingBrush = new fabric.PencilBrush(fabricCanvas);
+
+    fabricCanvas.freeDrawingBrush.color = penOptions.value.color;
+
+    fabricCanvas.freeDrawingBrush.width = penOptions.value.width;
+
+  } else if (tool === 'eraser') {
+
+    // Simulate erasing by drawing with the background color
+
+    fabricCanvas.freeDrawingBrush = new fabric.PencilBrush(fabricCanvas);
+
+    fabricCanvas.freeDrawingBrush.color = fabricCanvas.backgroundColor;
+
+    fabricCanvas.freeDrawingBrush.width = eraserOptions.value.width;
+
+  }
+
+};
+
+
+
+// Watch for changes in options and update the brush
+
+watch(penOptions, (newOptions) => {
+
+  if (activeTool.value === 'pen' && canvas.value) {
+
+    const brush = canvas.value.freeDrawingBrush;
+
+    if (brush) {
+
+      brush.color = newOptions.color;
+
+      brush.width = newOptions.width;
+
+    }
+
+  }
+
+}, { deep: true });
+
+
+
+watch(eraserOptions, (newOptions) => {
+
+  if (activeTool.value === 'eraser' && canvas.value) {
+
+    const brush = canvas.value.freeDrawingBrush;
+
+    if (brush) {
+
+      brush.width = newOptions.width;
+
+    }
+
+  }
+
+}, { deep: true });
+
+
+
+// Actions
+
+const clearCanvas = () => {
+
+  if (!canvas.value) return;
+
+  canvas.value.clear();
+
+  canvas.value.backgroundColor = '#ffffff'; // Ensure background is reset
+
+  const json = JSON.stringify(canvas.value.toJSON());
+
+  emit('update:modelValue', json);
+
+};
+
+
+
+const downloadCanvas = () => {
+
+  if (!canvas.value) return;
+
+  const dataURL = canvas.value.toDataURL({ format: 'png', quality: 1.0 });
+
+  const link = document.createElement('a');
+
+  link.href = dataURL;
+
+  link.download = `smartnote-canvas-${Date.now()}.png`;
+
+  document.body.appendChild(link);
+
+  link.click();
+
+  document.body.removeChild(link);
+
+};
+
+
+
+// State Management (Save & Load)
+
+const loadFromJSON = (json) => {
+
+  if (json && canvas.value) {
+
+    canvas.value.loadFromJSON(json, () => {
+
+      canvas.value.renderAll();
+
+    });
+
+  }
+
+};
+
+
+
+watch(() => props.modelValue, (newVal) => {
+
+  const currentVal = JSON.stringify(canvas.value?.toJSON());
+
+  if (newVal && newVal !== currentVal) {
+
+    loadFromJSON(newVal);
+
+  }
+
+}, { deep: true });
+
+
+
+// Responsive canvas resizing
+
+const handleResize = () => {
+
+  if (canvas.value && canvasWrapperRef.value) {
+
+    const { width, height } = canvasWrapperRef.value.getBoundingClientRect();
+
+    canvas.value.setWidth(width).setHeight(height);
+
+    canvas.value.renderAll();
+
+  }
+
+};
+
+
 
 onMounted(() => {
-  initCanvas()
-  window.addEventListener('resize', handleWindowResize)
 
-  resizeObserver = new ResizeObserver(() => resizeCanvas())
-  if (wrapperRef.value) {
-    resizeObserver.observe(wrapperRef.value)
-  }
+  // Defer canvas initialization until the next DOM update cycle
 
-  if (props.modelValue) {
-    loadFromModel(props.modelValue)
-  }
-})
+  // to ensure the container has its final dimensions.
+
+  nextTick(() => {
+
+    initCanvas();
+
+    if (canvasWrapperRef.value) {
+
+      resizeObserver = new ResizeObserver(handleResize);
+
+      resizeObserver.observe(canvasWrapperRef.value);
+
+    }
+
+  });
+
+});
+
+
 
 onBeforeUnmount(() => {
-  window.removeEventListener('resize', handleWindowResize)
-  resizeObserver?.disconnect()
-  resizeObserver = null
-  fabricCanvas.value?.dispose()
-})
 
-watch(
-  () => props.modelValue,
-  (value) => {
-    if (!fabricCanvas.value) return
-    loadFromModel(value)
-  }
-)
+  resizeObserver?.disconnect();
 
-watch(lineWidth, () => applyBrushStyle())
-watch(strokeStyle, () => applyBrushStyle())
+  canvas.value?.dispose();
+
+});
+
 </script>
 
+
+
 <style scoped>
-.canvas-board {
+
+.canvas-board-container {
+
   display: flex;
+
   flex-direction: column;
-  gap: 12px;
+
+  width: 100%;
+
   height: 100%;
-}
 
-.toolbar {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
+  background-color: #f8f9fa;
 
-.toolbar-controls {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 8px;
-}
-
-.color-control {
-  display: inline-flex;
-}
-
-:deep(.n-color-picker-trigger) {
-  width: 34px;
-  height: 34px;
   border-radius: 8px;
-  border: 1px solid rgba(15, 23, 42, 0.1);
-  background: #f8fafc;
-  cursor: pointer;
-}
 
-:deep(.n-color-picker-trigger__fill),
-:deep(.n-color-picker-checkboard) {
-  border-radius: 6px;
-}
-
-:deep(.n-color-picker-trigger__value) {
-  display: none !important;
-}
-
-.board-wrapper {
-  flex: 0 0 420px;
-  min-height: 420px;
-  max-height: 420px;
-  width: 100%;
-  border-radius: 16px;
   overflow: hidden;
-  background: #f8fafc;
-  box-shadow: inset 0 0 0 1px rgba(15, 23, 42, 0.08);
+
 }
 
-.board {
-  width: 100%;
-  height: 100%;
-  display: block;
-  touch-action: none;
-  cursor: crosshair;
+
+
+.canvas-toolbar {
+
+  flex-shrink: 0;
+
+  display: flex;
+
+  align-items: center;
+
+  flex-wrap: wrap;
+
+  gap: 8px;
+
+  padding: 8px 12px;
+
+  background-color: #ffffff;
+
+  border-bottom: 1px solid #e0e0e0;
+
+  box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+
+  z-index: 10;
+
 }
+
+
+
+.tool-group {
+
+  display: flex;
+
+  align-items: center;
+
+  gap: 8px;
+
+}
+
+
+
+.tool-group-divider {
+
+  width: 1px;
+
+  height: 24px;
+
+  background-color: #e0e0e0;
+
+  margin: 0 8px;
+
+}
+
+
+
+.color-swatch {
+
+  width: 20px;
+
+  height: 20px;
+
+  border-radius: 50%;
+
+  border: 1px solid #ccc;
+
+  cursor: pointer;
+
+}
+
+
+
+.option-group {
+
+  display: flex;
+
+  flex-direction: column;
+
+  gap: 8px;
+
+}
+
+.option-group label {
+
+  font-size: 13px;
+
+  font-weight: 500;
+
+  color: #333;
+
+}
+
+
+
+.canvas-wrapper {
+
+  flex-grow: 1;
+
+  position: relative;
+
+  min-height: 0; /* Important for flexbox children */
+
+}
+
+
+
+canvas {
+
+  display: block;
+
+  width: 100%;
+
+  height: 100%;
+
+}
+
 </style>

@@ -1,7 +1,7 @@
 ﻿import axios from 'axios'
 
 const BASE_URL =
-  import.meta.env.MODE === 'development' ? '/api' : 'https://your-production-domain.com/api'
+  import.meta.env.MODE === 'development' ? '/api' : 'http://localhost:5201/api'
 
 // ------------------------------
 // 安全提示
