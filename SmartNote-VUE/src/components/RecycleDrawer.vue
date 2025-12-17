@@ -71,6 +71,34 @@ const pagination = {
   pageSize: 6
 }
 
+const normaliseId = (value) => {
+  if (value === null || value === undefined) return null
+  const num = Number(value)
+  return Number.isNaN(num) ? value : num
+}
+
+const normaliseRecycleNote = (raw) => {
+  if (!raw || typeof raw !== 'object') return null
+  const id = normaliseId(raw.id ?? raw.noteId ?? raw.noteID ?? raw.NoteId ?? raw.NoteID)
+  const typeValue = Number.isInteger(raw.type) ? raw.type : Number(raw.type ?? raw.Type ?? 0)
+  const resolvedType = Number.isNaN(typeValue) ? 0 : typeValue
+  const deletedAt =
+    raw.deletedAt ||
+    raw.deletedTime ||
+    raw.DeletedTime ||
+    raw.deleted_time ||
+    raw.deleted_at ||
+    null
+
+  return {
+    ...raw,
+    id,
+    title: raw.title ?? raw.Title ?? raw.name ?? raw.Name ?? '',
+    type: resolvedType,
+    deletedAt
+  }
+}
+
 const columns = [
   { type: 'selection' },
   {
@@ -81,7 +109,7 @@ const columns = [
     title: '删除时间',
     key: 'deletedAt',
     render(row) {
-      return formatTime(row.deletedAt || row.updateTime)
+      return formatTime(row.deletedAt || row.deletedTime || row.DeletedTime || row.updateTime)
     }
   }
 ]
@@ -90,7 +118,8 @@ const load = async () => {
   loading.value = true
   try {
     const { data } = await recycleApi.list()
-    notes.value = data?.data || data || []
+    const raw = data?.data ?? data ?? []
+    notes.value = (Array.isArray(raw) ? raw : []).map(normaliseRecycleNote).filter(Boolean)
   } catch (error) {
     message.error(error?.response?.data?.message || '获取回收站失败')
   } finally {

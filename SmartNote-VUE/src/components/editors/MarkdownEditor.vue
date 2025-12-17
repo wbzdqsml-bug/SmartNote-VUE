@@ -1,13 +1,13 @@
 ﻿<template>
   <div class="markdown-editor">
     <div class="pane-card single-pane">
-      <div class="editor-header">
+      <div class="editor-header" v-if="!readOnly">
         <span class="editor-title">{{ previewMode ? 'Markdown 预览' : 'Markdown 编辑' }}</span>
         <n-button size="tiny" secondary strong @click="togglePreview">
           {{ previewMode ? '返回编辑' : '预览' }}
         </n-button>
       </div>
-      <div v-if="!previewMode" class="editor-body">
+      <div v-if="!currentPreviewMode" class="editor-body">
         <n-input
           ref="inputRef"
           v-model:value="localValue"
@@ -15,6 +15,7 @@
           :placeholder="placeholder"
           :autosize="false"
           :rows="20"
+          :readonly="readOnly"
         />
       </div>
       <div v-else class="preview-body">
@@ -40,6 +41,10 @@ const props = defineProps({
   placeholder: {
     type: String,
     default: '# 新建 Markdown 笔记\n\n支持 **粗体**、斜体、列表、代码块等基础语法'
+  },
+  readOnly: {
+    type: Boolean,
+    default: false
   }
 })
 
@@ -47,7 +52,7 @@ const emit = defineEmits(['update:modelValue'])
 
 const localValue = ref(props.modelValue || '')
 const inputRef = ref(null)
-const previewMode = ref(false)
+const previewMode = ref(false) // Internal state for toggling preview in editable mode
 
 const md = new MarkdownIt({
   html: true,
@@ -57,17 +62,22 @@ const md = new MarkdownIt({
   .enable(['table'])
   .use(markdownItKatex)
 
+const currentPreviewMode = computed(() => props.readOnly || previewMode.value)
+
 watch(
   () => props.modelValue,
   (value) => {
     if (value !== localValue.value) {
       localValue.value = value || ''
     }
-  }
+  },
+  { immediate: true }
 )
 
 watch(localValue, (value) => {
-  emit('update:modelValue', value)
+  if (!props.readOnly) {
+    emit('update:modelValue', value)
+  }
 })
 
 const rendered = computed(() => {
@@ -80,12 +90,14 @@ const rendered = computed(() => {
 })
 
 const togglePreview = () => {
-  previewMode.value = !previewMode.value
-  if (!previewMode.value) {
-    nextTick(() => {
-      const inputEl = inputRef.value?.$el?.querySelector('.n-input__textarea-el')
-      inputEl?.focus()
-    })
+  if (!props.readOnly) {
+    previewMode.value = !previewMode.value
+    if (!previewMode.value) {
+      nextTick(() => {
+        const inputEl = inputRef.value?.$el?.querySelector('.n-input__textarea-el')
+        inputEl?.focus()
+      })
+    }
   }
 }
 </script>

@@ -57,6 +57,16 @@ export const useTagStore = defineStore('tag', {
         console.error('[tagStore] createTag error:', error)
         throw error
       }
+    },
+
+    async deleteTag(tagId) {
+      try {
+        await tagApi.delete(tagId)
+        await this.loadTags(true)
+      } catch (error) {
+        console.error('[tagStore] deleteTag error:', error)
+        throw error
+      }
     }
   }
 })

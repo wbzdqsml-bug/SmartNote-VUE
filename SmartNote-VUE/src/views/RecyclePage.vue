@@ -34,23 +34,46 @@
       @update:checked-row-keys="(keys) => (selectedRowKeys = keys)"
       checkable
     />
+
+    <n-modal v-model:show="showViewModal" preset="card" class="view-modal" :segmented="modalSegmented" :loading="viewingNoteLoading">
+      <template #header>
+        <div class="modal-header">
+          <n-tag type="info" size="small">{{ currentTypeLabel(currentViewingNote?.type) }}</n-tag>
+          <span class="modal-title">{{ currentViewingNote?.title }}</span>
+          <span class="deleted-at">
+            删除时间: {{ formatTime(currentViewingNote?.deletedAt || currentViewingNote?.deletedTime || currentViewingNote?.DeletedTime) }}
+          </span>
+        </div>
+      </template>
+      <DeletedNoteViewer :note="currentViewingNote" v-if="currentViewingNote" />
+    </n-modal>
   </div>
 </template>
 
 <script setup>
-import { onMounted, ref } from 'vue'
-import { useMessage, NButton, NPopconfirm, NDataTable } from 'naive-ui'
+import { onMounted, ref, h } from 'vue'
+import { useMessage, NButton, NPopconfirm, NDataTable, NModal, NTag } from 'naive-ui'
 import recycleApi from '@/api/recycle'
 import { format } from 'date-fns'
+import DeletedNoteViewer from './DeletedNoteViewer.vue'
+import { noteTypeMap } from '@/constants/noteTypes'
 
 const message = useMessage()
 
 const notes = ref([])
 const loading = ref(false)
 const selectedRowKeys = ref([])
+const showViewModal = ref(false)
+const currentViewingNote = ref(null)
+const viewingNoteLoading = ref(false) // New loading state for the modal
 
 const pagination = {
   pageSize: 8
+}
+
+const modalSegmented = {
+  content: 'soft',
+  footer: 'soft'
 }
 
 const formatTime = (value) => {
@@ -59,6 +82,66 @@ const formatTime = (value) => {
     return format(new Date(value), 'yyyy-MM-dd HH:mm')
   } catch {
     return value
+  }
+}
+
+const normaliseId = (value) => {
+  if (value === null || value === undefined) return null
+  const num = Number(value)
+  return Number.isNaN(num) ? value : num
+}
+
+const normaliseRecycleNote = (raw) => {
+  if (!raw || typeof raw !== 'object') return null
+  const id = normaliseId(raw.id ?? raw.noteId ?? raw.noteID ?? raw.NoteId ?? raw.NoteID)
+  const typeValue = Number.isInteger(raw.type) ? raw.type : Number(raw.type ?? raw.Type ?? 0)
+  const resolvedType = Number.isNaN(typeValue) ? 0 : typeValue
+  const content = raw.contentJson ?? raw.ContentJson ?? raw.content ?? raw.Content ?? ''
+  const createdAt =
+    raw.createTime || raw.CreateTime || raw.createdAt || raw.created_time || raw.created_at || null
+  const updatedAt =
+    raw.lastUpdateTime ||
+    raw.LastUpdateTime ||
+    raw.updateTime ||
+    raw.updatedAt ||
+    raw.updated_at ||
+    createdAt
+  const deletedAt =
+    raw.deletedAt ||
+    raw.deletedTime ||
+    raw.DeletedTime ||
+    raw.deleted_time ||
+    raw.deleted_at ||
+    null
+
+  return {
+    ...raw,
+    id,
+    title: raw.title ?? raw.Title ?? raw.name ?? raw.Name ?? '',
+    type: resolvedType,
+    content,
+    contentJson: content,
+    updateTime: updatedAt,
+    deletedAt
+  }
+}
+
+const currentTypeLabel = (type) => noteTypeMap[type] || '笔记'
+
+const handleViewNote = async (noteSummary) => {
+  viewingNoteLoading.value = true
+  showViewModal.value = true // Open modal immediately for better UX
+  currentViewingNote.value = null // Clear previous note content
+  try {
+    const id = normaliseId(noteSummary?.id)
+    const { data } = await recycleApi.get(id)
+    const raw = data?.data ?? data
+    currentViewingNote.value = normaliseRecycleNote(raw)
+  } catch (error) {
+    message.error(error?.response?.data?.message || '获取笔记详情失败')
+    showViewModal.value = false // Close modal on error
+  } finally {
+    viewingNoteLoading.value = false
   }
 }
 
@@ -72,7 +155,21 @@ const columns = [
     title: '删除时间',
     key: 'deletedAt',
     render(row) {
-      return formatTime(row.deletedAt || row.updateTime)
+      return formatTime(row.deletedAt || row.deletedTime || row.DeletedTime)
+    }
+  },
+  {
+    title: '操作',
+    key: 'actions',
+    render(row) {
+      return h(
+        NButton,
+        {
+          size: 'small',
+          onClick: () => handleViewNote(row)
+        },
+        { default: () => '查看' }
+      )
     }
   }
 ]
@@ -81,7 +178,8 @@ const load = async () => {
   loading.value = true
   try {
     const { data } = await recycleApi.list()
-    notes.value = data?.data || data || []
+    const raw = data?.data ?? data ?? []
+    notes.value = (Array.isArray(raw) ? raw : []).map(normaliseRecycleNote).filter(Boolean)
   } catch (error) {
     message.error(error?.response?.data?.message || '获取回收站失败')
   } finally {
@@ -133,5 +231,37 @@ onMounted(() => {
   display: flex;
   gap: 8px;
   margin-bottom: 12px;
+}
+
+.view-modal {
+  width: min(90vw, 1200px);
+  height: 80vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.view-modal :deep(.n-card__content) {
+  flex: 1;
+  overflow: auto;
+}
+
+.modal-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.modal-title {
+  font-size: 18px;
+  font-weight: bold;
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.deleted-at {
+  font-size: 14px;
+  color: #606060;
 }
 </style>

@@ -11,6 +11,13 @@ import TagManager from '@/views/TagManager.vue'
 import Profile from '@/views/Profile.vue'
 
 const routes = [
+  // 部分浏览器插件会往 history 注入 `/hybridaction/...` 之类的路径，导致路由无匹配并出现空白页/告警。
+  // 这里直接拦截并取消这类导航，避免影响正常页面。
+  {
+    path: '/hybridaction/:pathMatch(.*)*',
+    name: 'hybridaction-ignore',
+    beforeEnter: () => false
+  },
   {
     path: '/',
     redirect: '/home'
@@ -107,6 +114,17 @@ const routes = [
           sidebarKey: 'recycle',
           title: '回收站',
           subtitle: '管理已删除的笔记'
+        }
+      },
+      {
+        path: 'recycle/:noteId',
+        name: 'deleted-note',
+        component: () => import('@/views/DeletedNotePage.vue'),
+        meta: {
+          requiresAuth: true,
+          sidebarKey: 'recycle',
+          title: '查看已删除的笔记',
+          subtitle: '查看已删除笔记的详细内容'
         }
       },
       {

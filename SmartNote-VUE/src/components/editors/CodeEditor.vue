@@ -6,6 +6,7 @@
       :autosize="{ minRows: 16, maxRows: 32 }"
       :placeholder="placeholder"
       class="code-input"
+      :readonly="readOnly"
     />
     <n-card size="small" class="preview" :bordered="false">
       <template #header>
@@ -28,6 +29,10 @@ const props = defineProps({
   placeholder: {
     type: String,
     default: '// 在这里编写代码笔记'
+  },
+  readOnly: {
+    type: Boolean,
+    default: false
   }
 })
 
@@ -45,7 +50,9 @@ watch(
 )
 
 watch(localValue, (value) => {
-  emit('update:modelValue', value)
+  if (!props.readOnly) {
+    emit('update:modelValue', value)
+  }
 })
 </script>
 

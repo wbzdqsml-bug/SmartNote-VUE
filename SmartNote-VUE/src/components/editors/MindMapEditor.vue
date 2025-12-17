@@ -1,16 +1,17 @@
 ﻿<template>
   <div class="mind-map-editor">
     <div class="editor-pane">
-      <div class="toolbar">
+      <div class="toolbar" v-if="!readOnly">
         <n-button size="tiny" tertiary @click="addNode(null)">添加中心主题</n-button>
       </div>
       <div class="node-list-wrapper">
-        <n-empty v-if="!nodes.length" description="点击上方按钮开始" />
+        <n-empty v-if="!nodes.length && !readOnly" description="点击上方按钮开始" />
         <ul v-else class="node-list">
           <mind-map-node
             v-for="node in nodes"
             :key="node.id"
             :node="node"
+            :read-only="readOnly"
             @update="updateNode"
             @remove="removeNode"
             @append="addNode"
@@ -38,6 +39,10 @@ const props = defineProps({
   modelValue: {
     type: String,
     default: '[]'
+  },
+  readOnly: {
+    type: Boolean,
+    default: false
   }
 })
 const emit = defineEmits(['update:modelValue'])
@@ -67,7 +72,7 @@ const convertToEchartData = (node) => ({
 })
 
 const renderChart = () => {
-  if (!chartInstance || !nodes.value.length) {
+  if (!chartInstance || (!nodes.value.length && props.readOnly)) {
     chartInstance?.clear()
     return
   }
@@ -113,6 +118,7 @@ const findAndExecute = (targetId, list, action) => {
 }
 
 const addNode = (parentId) => {
+  if (props.readOnly) return;
   const newNode = { id: generateId(), title: '新节点', children: [] }
   if (!parentId) {
     nodes.value.push(newNode)
@@ -124,12 +130,14 @@ const addNode = (parentId) => {
 }
 
 const removeNode = (targetId) => {
+  if (props.readOnly) return;
   findAndExecute(targetId, nodes.value, (_, list, index) => {
     list.splice(index, 1)
   })
 }
 
 const updateNode = ({ id, title }) => {
+  if (props.readOnly) return;
   findAndExecute(id, nodes.value, (node) => {
     node.title = title
   })
@@ -140,10 +148,12 @@ const updateNode = ({ id, title }) => {
 watch(() => props.modelValue, (value) => {
   nodes.value = normalise(value)
   renderChart()
-})
+}, { immediate: true }) // Added immediate: true to ensure initial render
 
 watch(nodes, (value) => {
-  emit('update:modelValue', JSON.stringify(value))
+  if (!props.readOnly) {
+    emit('update:modelValue', JSON.stringify(value))
+  }
   renderChart()
 }, { deep: true })
 
@@ -164,7 +174,10 @@ onBeforeUnmount(() => {
 // --- RECURSIVE NODE COMPONENT ---
 const MindMapNode = defineComponent({
   name: 'MindMapNode',
-  props: { node: { type: Object, required: true } },
+  props: {
+    node: { type: Object, required: true },
+    readOnly: { type: Boolean, default: false }
+  },
   emits: ['update', 'remove', 'append'],
   setup(nodeProps, { emit: emitNode }) {
     const localTitle = ref(nodeProps.node.title)
@@ -175,9 +188,15 @@ const MindMapNode = defineComponent({
         h(NInput, {
           value: localTitle.value,
           size: 'small',
-          'onUpdate:value': (val) => localTitle.value = val,
-          onBlur: () => emitNode('update', { id: nodeProps.node.id, title: localTitle.value })
+          'onUpdate:value': (val) => {
+            if (!nodeProps.readOnly) localTitle.value = val;
+          },
+          onBlur: () => {
+            if (!nodeProps.readOnly) emitNode('update', { id: nodeProps.node.id, title: localTitle.value });
+          },
+          readonly: nodeProps.readOnly // Make input read-only
         }),
+        nodeProps.readOnly ? null : // Hide actions if readOnly
         h('div', { class: 'node-actions' }, [
           h(NButton, { quaternary: true, size: 'tiny', onClick: () => emitNode('append', nodeProps.node.id) },
             { icon: () => h(NIcon, { component: AddOutline }) }),
@@ -190,6 +209,7 @@ const MindMapNode = defineComponent({
             h(MindMapNode, {
               key: child.id,
               node: child,
+              readOnly: nodeProps.readOnly, // Pass readOnly prop to children
               onUpdate: (p) => emitNode('update', p),
               onRemove: (id) => emitNode('remove', id),
               onAppend: (id) => emitNode('append', id)
@@ -205,6 +225,7 @@ const MindMapNode = defineComponent({
 .mind-map-editor {
   display: grid;
   grid-template-columns: 4fr 6fr;
+  grid-template-rows: 100%;
   gap: 16px;
   height: 100%;
 }
@@ -267,6 +288,8 @@ const MindMapNode = defineComponent({
 
 .chart-pane {
   height: 100%;
+  min-height: 0;
   border-radius: 8px;
+  overflow: auto;
 }
 </style>

@@ -58,6 +58,16 @@ export const useCategoryStore = defineStore('category', {
         console.error('[categoryStore] createCategory error:', error)
         throw error
       }
+    },
+
+    async deleteCategory(categoryId) {
+      try {
+        await categoryApi.delete(categoryId)
+        await this.loadCategories(true)
+      } catch (error) {
+        console.error('[categoryStore] deleteCategory error:', error)
+        throw error
+      }
     }
   }
 })
