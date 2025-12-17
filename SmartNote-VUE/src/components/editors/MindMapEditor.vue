@@ -1,14 +1,14 @@
 ﻿<template>
   <div class="mind-map-editor">
     <div class="editor-pane">
-      <div class="toolbar" v-if="!readOnly">
+      <div class="toolbar" v-if="!readOnly && !previewMindmapContent">
         <n-button size="tiny" tertiary @click="addNode(null)">添加中心主题</n-button>
       </div>
       <div class="node-list-wrapper">
-        <n-empty v-if="!nodes.length && !readOnly" description="点击上方按钮开始" />
-        <ul v-else class="node-list">
+        <n-empty v-if="!localNodes.length && !readOnly && !previewMindmapContent" description="点击上方按钮开始" />
+        <ul v-else-if="!previewMindmapContent" class="node-list">
           <mind-map-node
-            v-for="node in nodes"
+            v-for="node in localNodes"
             :key="node.id"
             :node="node"
             :read-only="readOnly"
@@ -17,6 +17,7 @@
             @append="addNode"
           />
         </ul>
+        <n-empty v-else description="AI 预览模式（只读）" />
       </div>
     </div>
     <div class="chart-pane" ref="chartRef"></div>
@@ -43,6 +44,10 @@ const props = defineProps({
   readOnly: {
     type: Boolean,
     default: false
+  },
+  previewMindmapContent: { // New prop
+    type: Object, // Expecting { nodes: [], edges: [] }
+    default: null
   }
 })
 const emit = defineEmits(['update:modelValue'])
@@ -52,18 +57,79 @@ const emit = defineEmits(['update:modelValue'])
 const chartRef = ref(null)
 let chartInstance = null
 
+const transformAIdataToEditorNodes = (aiData) => {
+    if (!aiData || !aiData.nodes || !aiData.edges) return [];
+
+    const { nodes: aiNodes, edges: aiEdges } = aiData;
+    const editorNodesMap = new Map(); // id -> { id, title, children: [] }
+
+    // Initialize editor nodes from AI nodes
+    aiNodes.forEach(aiNode => {
+        editorNodesMap.set(aiNode.id, {
+            id: aiNode.id,
+            title: aiNode.data?.label || 'Unnamed Node',
+            children: []
+        });
+    });
+
+    // Build children relationships based on AI edges
+    aiEdges.forEach(aiEdge => {
+        const sourceNode = editorNodesMap.get(aiEdge.source);
+        const targetNode = editorNodesMap.get(aiEdge.target);
+        if (sourceNode && targetNode) {
+            sourceNode.children.push(targetNode);
+        }
+    });
+
+    // Identify root nodes (nodes that are not targets of any edge)
+    const targetIds = new Set(aiEdges.map(edge => edge.target));
+    const rootNodes = aiNodes
+        .filter(aiNode => !targetIds.has(aiNode.id))
+        .map(aiNode => editorNodesMap.get(aiNode.id));
+
+    // Fallback: if no explicit roots, or all nodes are part of a cycle, return all nodes
+    // Or if the AI provides a non-tree-like graph, we try to make sense of it.
+    // For simplicity, if rootNodes is empty, we'll just return all nodes that are not children of another node
+    if (rootNodes.length === 0 && aiNodes.length > 0) {
+        const allNodesInMap = Array.from(editorNodesMap.values());
+        const childrenNodes = new Set();
+        allNodesInMap.forEach(node => {
+            node.children.forEach(child => childrenNodes.add(child.id));
+        });
+        return allNodesInMap.filter(node => !childrenNodes.has(node.id));
+    }
+
+    return rootNodes;
+};
+
 const normalise = (value) => {
   if (!value) return []
   if (Array.isArray(value)) return value
+
+  // Support mindmap content saved as AI graph: { nodes: [], edges: [] }
+  if (value && typeof value === 'object' && Array.isArray(value.nodes) && Array.isArray(value.edges)) {
+    return transformAIdataToEditorNodes(value)
+  }
+
   try {
     const parsed = JSON.parse(value)
-    return Array.isArray(parsed) ? parsed : []
+    if (Array.isArray(parsed)) return parsed
+    if (
+      parsed &&
+      typeof parsed === 'object' &&
+      Array.isArray(parsed.nodes) &&
+      Array.isArray(parsed.edges)
+    ) {
+      return transformAIdataToEditorNodes(parsed)
+    }
+    return []
   } catch (err) {
     return []
   }
 }
 
-const nodes = ref(normalise(props.modelValue))
+const localNodes = ref(normalise(props.modelValue))
+const displayContentNodes = ref([]) // The actual nodes to be displayed and rendered in ECharts
 
 // --- DATA -> ECHARTS ---
 const convertToEchartData = (node) => ({
@@ -72,12 +138,12 @@ const convertToEchartData = (node) => ({
 })
 
 const renderChart = () => {
-  if (!chartInstance || (!nodes.value.length && props.readOnly)) {
+  if (!chartInstance || (!displayContentNodes.value.length && props.readOnly)) {
     chartInstance?.clear()
     return
   }
   
-  const data = nodes.value.map(convertToEchartData)
+  const data = displayContentNodes.value.map(convertToEchartData)
   
   const option = {
     tooltip: { trigger: 'item', triggerOn: 'mousemove' },
@@ -118,27 +184,30 @@ const findAndExecute = (targetId, list, action) => {
 }
 
 const addNode = (parentId) => {
-  if (props.readOnly) return;
+  // Only allow adding nodes if not in preview mode
+  if (props.readOnly || props.previewMindmapContent) return;
   const newNode = { id: generateId(), title: '新节点', children: [] }
   if (!parentId) {
-    nodes.value.push(newNode)
+    localNodes.value.push(newNode)
   } else {
-    findAndExecute(parentId, nodes.value, (node) => {
+    findAndExecute(parentId, localNodes.value, (node) => {
       node.children.push(newNode)
     })
   }
 }
 
 const removeNode = (targetId) => {
-  if (props.readOnly) return;
-  findAndExecute(targetId, nodes.value, (_, list, index) => {
+  // Only allow removing nodes if not in preview mode
+  if (props.readOnly || props.previewMindmapContent) return;
+  findAndExecute(targetId, localNodes.value, (_, list, index) => {
     list.splice(index, 1)
   })
 }
 
 const updateNode = ({ id, title }) => {
-  if (props.readOnly) return;
-  findAndExecute(id, nodes.value, (node) => {
+  // Only allow updating nodes if not in preview mode
+  if (props.readOnly || props.previewMindmapContent) return;
+  findAndExecute(id, localNodes.value, (node) => {
     node.title = title
   })
 }
@@ -146,16 +215,34 @@ const updateNode = ({ id, title }) => {
 
 // --- WATCHERS & LIFECYCLE ---
 watch(() => props.modelValue, (value) => {
-  nodes.value = normalise(value)
-  renderChart()
-}, { immediate: true }) // Added immediate: true to ensure initial render
+  // Update localNodes when modelValue changes from outside
+  if (!props.previewMindmapContent) {
+    localNodes.value = normalise(value)
+  }
+}, { immediate: true })
 
-watch(nodes, (value) => {
-  if (!props.readOnly) {
+watch(localNodes, (value) => {
+  // Emit update:modelValue when localNodes changes, but only if not in preview mode
+  if (!props.readOnly && !props.previewMindmapContent) {
     emit('update:modelValue', JSON.stringify(value))
   }
-  renderChart()
 }, { deep: true })
+
+watch(() => props.previewMindmapContent, (newContent) => {
+  if (newContent) {
+    displayContentNodes.value = transformAIdataToEditorNodes(newContent)
+  } else {
+    // If preview ends, revert to localNodes
+    displayContentNodes.value = localNodes.value
+  }
+  renderChart()
+}, { deep: true, immediate: true })
+
+// This watch ensures that ECharts always re-renders when displayContentNodes changes,
+// whether from modelValue, localNodes, or previewMindmapContent
+watch(displayContentNodes, () => {
+  renderChart()
+}, { deep: true, immediate: true })
 
 onMounted(() => {
   nextTick(() => {

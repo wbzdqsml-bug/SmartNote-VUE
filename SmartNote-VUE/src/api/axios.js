@@ -1,7 +1,6 @@
 ﻿import axios from 'axios'
 
-const BASE_URL =
-  import.meta.env.MODE === 'development' ? '/api' : 'http://localhost:5201/api'
+const BASE_URL = import.meta.env.VITE_API_BASE_URL || (import.meta.env.MODE === 'development' ? '/api' : 'http://localhost:5201/api')
 
 // ------------------------------
 // 安全提示

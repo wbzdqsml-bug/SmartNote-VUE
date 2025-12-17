@@ -3,7 +3,13 @@
     <div v-if="note">
       <div class="sidebar-section">
         <h3 class="section-title">AI 操作</h3>
-        <a-i-actions-panel :note-id="note.id" />
+        <ai-actions-panel
+          :note-id="note.id"
+          :workspace-id="note.workspaceId ?? note.WorkspaceId"
+          :note-title="note.title"
+          :category-id="localNote.categoryId"
+          :tag-ids="localNote.tagIds"
+        />
       </div>
 
       <div class="sidebar-section">
@@ -146,7 +152,6 @@ import {
 } from 'naive-ui'
 import { format } from 'date-fns'
 import AIActionsPanel from '@/components/AIActionsPanel.vue'
-import noteApi from '@/api/note'
 import { useCategoryStore } from '@/store/categoryStore'
 import { useTagStore } from '@/store/tagStore'
 
@@ -338,6 +343,7 @@ const formatTime = (value) => {
 <style scoped>
 .note-sidebar {
   height: 100%;
+  min-height: 0;
   background: #fff;
   border: 1px solid #eef2f8;
   border-radius: 12px;
@@ -345,6 +351,7 @@ const formatTime = (value) => {
   display: flex;
   flex-direction: column;
   gap: 20px;
+  overflow-y: auto;
 }
 
 .section-title {

@@ -16,6 +16,19 @@
               保存
             </n-button>
             <n-button quaternary size="small" @click="showExpanded = true">放大编辑</n-button>
+            <n-popover trigger="hover" placement="bottom" :disabled="!localNote.id">
+              <template #trigger>
+                <n-button
+                  quaternary
+                  size="small"
+                  :disabled="!localNote.id"
+                  @click="showAIPanel = true"
+                >
+                  <n-icon :component="SparklesOutline" :size="20" />
+                </n-button>
+              </template>
+              AI 助手
+            </n-popover>
           </div>
         </div>
 
@@ -32,6 +45,20 @@
         <n-empty description="请选择左侧的笔记" />
       </template>
     </n-card>
+
+    <n-drawer v-model:show="showAIPanel" :width="520" placement="right">
+      <AIActionsPanel
+        v-if="localNote.id"
+        :note-id="localNote.id"
+        :workspace-id="localNote.workspaceId"
+        :note-title="localNote.title"
+        :category-id="note?.categoryId"
+        :tag-ids="note?.tagIds"
+        :show-close="true"
+        @close="showAIPanel = false"
+      />
+    </n-drawer>
+
 
     <div v-if="showExpanded" class="editor-overlay" @click.self="showExpanded = false">
       <div class="overlay-card">
@@ -61,12 +88,14 @@
 
 <script setup>
 import { computed, reactive, ref, watch } from 'vue'
-import { NCard, NInput, NButton, NTag, NEmpty } from 'naive-ui'
+import { NCard, NInput, NButton, NTag, NEmpty, NIcon, NPopover, NDrawer } from 'naive-ui'
 import { noteTypeMap, defaultContentByType } from '@/constants/noteTypes'
 import MarkdownEditor from '@/components/editors/MarkdownEditor.vue'
 import CanvasBoard from '@/components/editors/CanvasBoard.vue'
 import MindMapEditor from '@/components/editors/MindMapEditor.vue'
 import RichTextEditor from '@/components/editors/RichTextEditor.vue'
+import { SparklesOutline } from '@vicons/ionicons5'
+import AIActionsPanel from '@/components/AIActionsPanel.vue'
 
 const props = defineProps({
   note: {
@@ -93,8 +122,10 @@ const localNote = reactive({
   title: '',
   content: '',
   type: 0,
+  workspaceId: null // Add workspaceId here
 })
 const showExpanded = ref(false)
+const showAIPanel = ref(false)
 
 const currentEditor = computed(() => editorMap[localNote.type] || MarkdownEditor)
 const currentTypeLabel = computed(() => noteTypeMap[localNote.type] || '笔记')
@@ -118,6 +149,7 @@ watch(
       localNote.title = value.title || ''
       localNote.type = resolvedType
       localNote.content = value.contentJson ?? value.content ?? defaultContentByType[resolvedType] ?? ''
+      localNote.workspaceId = value.workspaceId ?? value.WorkspaceId ?? null
     }
   },
   { immediate: true }
