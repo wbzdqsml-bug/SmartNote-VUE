@@ -54,6 +54,7 @@ const routeMap = {
   home: '/home',
   notes: '/notes',
   analysis: '/analysis',
+  chat: '/chat',
   ai: '/ai',
   graph: '/graph',
   workspace: '/workspace',

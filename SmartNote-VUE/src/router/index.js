@@ -73,6 +73,17 @@ const routes = [
         }
       },
       {
+        path: 'chat',
+        name: 'chat',
+        component: () => import('@/views/ChatLayout.vue'),
+        meta: {
+          requiresAuth: true,
+          sidebarKey: 'chat',
+          title: '消息中心',
+          subtitle: '好友与工作区聊天'
+        }
+      },
+      {
         path: 'ai',
         name: 'ai',
         component: AiAssistant,

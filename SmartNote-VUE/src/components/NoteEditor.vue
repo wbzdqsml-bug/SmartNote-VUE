@@ -1,4 +1,4 @@
-﻿<template>
+﻿﻿<template>
   <div class="note-editor-wrapper" v-bind="$attrs">
     <n-card class="note-editor" :bordered="false">
       <template v-if="note">
@@ -170,7 +170,10 @@ const handleSave = () => {
     payload: {
       title: localNote.title,
       content: localNote.content,
-      contentJson: localNote.content
+      contentJson: localNote.content,
+      // Preserve metadata to prevent accidental clearing
+      categoryId: props.note?.categoryId ?? null,
+      tagIds: props.note?.tagIds ?? []
     }
   })
 }

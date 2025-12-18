@@ -58,6 +58,7 @@ const menuOptions = computed(() => [
   { label: '首页概览', key: 'home' },
   { label: '笔记编辑', key: 'notes' },
   { label: '学习统计', key: 'analysis' },
+  { label: '消息中心', key: 'chat' },
   { label: '知识图谱', key: 'graph' },
   { label: 'AI 助手', key: 'ai' },
   { label: '协作空间', key: 'workspace' },
