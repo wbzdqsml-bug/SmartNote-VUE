@@ -2,17 +2,6 @@
   <div class="note-sidebar" v-bind="$attrs">
     <div v-if="note">
       <div class="sidebar-section">
-        <h3 class="section-title">AI 操作</h3>
-        <ai-actions-panel
-          :note-id="note.id"
-          :workspace-id="note.workspaceId ?? note.WorkspaceId"
-          :note-title="note.title"
-          :category-id="localNote.categoryId"
-          :tag-ids="localNote.tagIds"
-        />
-      </div>
-
-      <div class="sidebar-section">
         <h3 class="section-title">分类</h3>
         <div class="control-content">
             <n-tag
@@ -151,7 +140,6 @@ import {
   useMessage
 } from 'naive-ui'
 import { format } from 'date-fns'
-import AIActionsPanel from '@/components/AIActionsPanel.vue'
 import { useCategoryStore } from '@/store/categoryStore'
 import { useTagStore } from '@/store/tagStore'
 

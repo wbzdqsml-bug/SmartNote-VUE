@@ -12,22 +12,11 @@
 
     <n-spin :show="isLoading">
       <n-grid cols="1 s:2 m:2 l:2" :x-gap="16" :y-gap="16" responsive="screen">
-        <n-gi>
+        <n-gi span="2">
           <n-card title="学习活动热力图" :segmented="true">
             <div class="chart-wrapper">
               <div ref="heatmapRef" class="chart-container"></div>
               <div v-if="!heatmapData.length && !loadingState.heatmap" class="empty-hint">
-                {{ emptyText }}
-              </div>
-            </div>
-          </n-card>
-        </n-gi>
-
-        <n-gi>
-          <n-card title="学习趋势" :segmented="true">
-            <div class="chart-wrapper">
-              <div ref="trendRef" class="chart-container"></div>
-              <div v-if="!trendData.length && !loadingState.trend" class="empty-hint">
                 {{ emptyText }}
               </div>
             </div>
@@ -90,7 +79,7 @@ import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref } from 'v
 import { useRouter } from 'vue-router'
 import { NButton, NCard, NGi, NGrid, NSpin, NModal, NList, NListItem, NTag, NEmpty, useMessage } from 'naive-ui'
 import * as echarts from 'echarts/core'
-import { HeatmapChart, LineChart, PieChart, BarChart } from 'echarts/charts'
+import { HeatmapChart, PieChart, BarChart } from 'echarts/charts'
 import {
   CalendarComponent,
   GridComponent,
@@ -105,7 +94,6 @@ import { noteTypeMap } from '@/constants/noteTypes'
 
 echarts.use([
   HeatmapChart,
-  LineChart,
   PieChart,
   BarChart,
   CalendarComponent,
@@ -122,14 +110,12 @@ const emptyText = '暂无数据，快去记一条笔记吧～'
 
 // --- Refs for chart containers ---
 const heatmapRef = ref(null)
-const trendRef = ref(null)
 const categoryRef = ref(null)
 const tagRef = ref(null)
 const workspaceRef = ref(null)
 
 // --- Data state ---
 const heatmapData = ref([])
-const trendData = ref([])
 const categoryData = ref([])
 const tagData = ref([])
 const workspaceData = ref([])
@@ -137,7 +123,6 @@ const workspaceData = ref([])
 // --- Loading state ---
 const loadingState = reactive({
   heatmap: false,
-  trend: false,
   categories: false,
   tags: false,
   workspace: false
@@ -153,7 +138,6 @@ const modalNotes = ref([])
 // --- Chart instances ---
 const chartMap = {
   heatmap: null,
-  trend: null,
   category: null,
   tag: null,
   workspace: null
@@ -185,16 +169,6 @@ const formatMonthDay = (value) => {
   return `${month}-${day}`
 }
 
-const normaliseTrend = (list) =>
-  (Array.isArray(list) ? list : [])
-    .map((item) => ({
-      date: item.date || item.day || '',
-      created: toNumber(item.created),
-      updated: toNumber(item.updated ?? item.count ?? 0)
-    }))
-    .filter((item) => item.date)
-    .sort((a, b) => new Date(a.date) - new Date(b.date))
-
 const normaliseCategory = (list) =>
   (Array.isArray(list) ? list : []).map((item) => ({
     id: item.categoryId ?? item.id,
@@ -225,20 +199,21 @@ const renderHeatmapChart = () => {
   if (!chartMap.heatmap || !heatmapRef.value) return;
 
   // 1. Get all unique years from data, sorted descending
-  const years = [...new Set(heatmapData.value.map(item => item.date.slice(0, 4)))]
+  let years = [...new Set(heatmapData.value.map(item => item.date.slice(0, 4)))]
     .sort((a, b) => b.localeCompare(a)); 
 
   // If no data, prepare to show a single, empty calendar for the current year
   if (years.length === 0) {
-    years.push(String(new Date().getFullYear()));
-    chartMap.heatmap.clear(); // Clear previous data
-    heatmapRef.value.style.height = '300px'; // Reset to default height
+    years = [String(new Date().getFullYear())];
   }
 
-  const seriesData = heatmapData.value.map(item => ({
-    value: [item.date, item.count],
-    notes: item.notes
-  }));
+  // Only show cells with activity (count > 0)
+  const seriesData = heatmapData.value
+    .filter(item => item.count > 0)
+    .map(item => ({
+      value: [item.date, item.count],
+      notes: item.notes || []
+    }));
 
   const maxCount = Math.max(...(heatmapData.value.map(item => item.count)), 0) || 1;
 
@@ -247,12 +222,13 @@ const renderHeatmapChart = () => {
     top: 90 + index * 190, // A little more top margin
     left: 'center',
     range: year,
-    cellSize: ['auto', 13],
+    cellSize: ['auto', 20],
     splitLine: { 
       show: true, 
       lineStyle: { color: '#fff', width: 4, type: 'solid' } 
     },
     itemStyle: { 
+      color: '#f5f7fa',
       borderWidth: 1,
       borderColor: '#fff'
     },
@@ -273,11 +249,20 @@ const renderHeatmapChart = () => {
     type: 'heatmap',
     coordinateSystem: 'calendar',
     calendarIndex: index,
-    data: seriesData // ECharts will filter data based on calendar range
+    data: seriesData,
+    label: {
+      show: true,
+      formatter: function (params) {
+        const dateParts = params.value[0].split('-');
+        return Number(dateParts[2]); // Return day part
+      },
+      color: '#666',
+      fontSize: 10
+    }
   }));
   
   // 4. Dynamically adjust chart container height and resize the chart
-  const newHeight = years.length * 190 + 70; // Adjust height to match
+  const newHeight = years.length * 190 + 120; // Adjust height to match
   if (heatmapRef.value.style.height !== `${newHeight}px`) {
       heatmapRef.value.style.height = `${newHeight}px`;
       // Defer resize to allow DOM to update
@@ -294,12 +279,17 @@ const renderHeatmapChart = () => {
         if (!params.data || !params.data.value) return ''; 
         const [date, count] = params.data.value;
         const notes = params.data.notes || [];
-        let tooltipText = `${date}<br/>活动次数：${count}`;
-        if (notes.length) {
-          tooltipText += `<hr style="margin: 5px 0;" />${notes.slice(0, 5).join('<br/>')}`;
-          if (notes.length > 5) {
-            tooltipText += '<br/>...';
+        let tooltipText = `${date}`;
+        if (count > 0) {
+          tooltipText += `<br/>活动次数：${count}`;
+          if (notes.length) {
+            tooltipText += `<hr style="margin: 5px 0;" />${notes.slice(0, 5).join('<br/>')}`;
+            if (notes.length > 5) {
+              tooltipText += '<br/>...';
+            }
           }
+        } else {
+          tooltipText += `<br/>无活动`;
         }
         return tooltipText;
       }
@@ -307,74 +297,19 @@ const renderHeatmapChart = () => {
     visualMap: {
         show: true, 
         type: 'continuous', 
-        min: 0, 
+        min: 1, 
         max: maxCount, 
         calculable: true,
         orient: 'horizontal', 
         left: 'center', 
-        bottom: 10,
-        inRange: { color: ['#ebfaff', '#cceeff', '#99ddff', '#66ccff', '#33bbff', '#00aaff'] }, // More granular colors
+        bottom: 20,
+        inRange: { color: ['#91d5ff', '#40a9ff', '#1890ff', '#0050b3'] }, 
+        outOfRange: { color: '#f5f7fa' },
         textStyle: { color: '#333' }
     },
     calendar: calendarComponents,
     series: seriesComponents
   }, true);
-}
-
-const renderTrendChart = () => {
-  if (!chartMap.trend) return
-  const xAxis = trendData.value.map((item) => formatMonthDay(item.date))
-  const created = trendData.value.map((item) => item.created)
-  const updated = trendData.value.map((item) => item.updated)
-
-  chartMap.trend.clear()
-  chartMap.trend.setOption(
-    {
-      tooltip: {
-        trigger: 'axis'
-      },
-      legend: {
-        data: ['新建', '更新']
-      },
-      grid: { left: 40, right: 20, top: 40, bottom: 30 },
-      xAxis: {
-        type: 'category',
-        data: xAxis,
-        boundaryGap: false,
-        axisTick: { show: false }
-      },
-      yAxis: {
-        type: 'value',
-        minInterval: 1,
-        axisLine: { show: true }
-      },
-      series: [
-        {
-          name: '新建',
-          type: 'line',
-          data: created,
-          smooth: true,
-          areaStyle: {
-            color: 'rgba(59, 130, 246, 0.15)'
-          },
-          lineStyle: { color: '#3b82f6' },
-          itemStyle: { color: '#3b82f6' }
-        },
-        {
-          name: '更新',
-          type: 'line',
-          data: updated,
-          smooth: true,
-          areaStyle: {
-            color: 'rgba(16, 185, 129, 0.12)'
-          },
-          lineStyle: { color: '#10b981' },
-          itemStyle: { color: '#10b981' }
-        }
-      ]
-    },
-    true
-  )
 }
 
 const renderCategoryChart = () => {
@@ -504,7 +439,6 @@ const renderWorkspaceChart = () => {
 
 const renderAllCharts = () => {
   renderHeatmapChart()
-  renderTrendChart()
   renderCategoryChart()
   renderTagChart()
   renderWorkspaceChart()
@@ -523,7 +457,7 @@ const handleHeatmapClick = async (params) => {
   modalNotes.value = []
 
   try {
-    const res = await noteApi.filter({ date })
+    const res = await noteApi.getByDate(date)
     // The full note object from filter might be different, let's normalize it
     modalNotes.value = (resolveData(res) || []).map(note => ({
       ...note,
@@ -541,9 +475,6 @@ const initCharts = () => {
     chartMap.heatmap = echarts.init(heatmapRef.value)
     chartMap.heatmap.on('click', handleHeatmapClick)
   }
-  if (trendRef.value && !chartMap.trend) {
-    chartMap.trend = echarts.init(trendRef.value)
-  }
   if (categoryRef.value && !chartMap.category) {
     chartMap.category = echarts.init(categoryRef.value)
   }
@@ -560,18 +491,16 @@ const fetchAnalysisData = async () => {
     loadingState[key] = true
   })
   try {
-    const [heatmapRes, categoryRes, tagRes, trendRes, workspaceRes] = await Promise.all([
+    const [heatmapRes, categoryRes, tagRes, workspaceRes] = await Promise.all([
       analysisApi.getHeatmap(),
       analysisApi.getCategoryStats(),
       analysisApi.getTagStats(),
-      analysisApi.getTrend(),
       analysisApi.getWorkspaceStats()
     ])
 
     heatmapData.value = normaliseHeatmap(resolveData(heatmapRes))
     categoryData.value = normaliseCategory(resolveData(categoryRes))
     tagData.value = normaliseTag(resolveData(tagRes))
-    trendData.value = normaliseTrend(resolveData(trendRes))
     workspaceData.value = normaliseWorkspace(resolveData(workspaceRes))
 
     await nextTick()
