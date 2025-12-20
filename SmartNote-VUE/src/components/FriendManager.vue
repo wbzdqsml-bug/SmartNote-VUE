@@ -51,8 +51,8 @@
                 </div>
                 <template #suffix>
                   <n-space>
-                    <n-button size="tiny" type="primary" @click="handleAction(req.id, 'accept')">接受</n-button>
-                    <n-button size="tiny" @click="handleAction(req.id, 'reject')">拒绝</n-button>
+                    <n-button size="tiny" type="primary" @click="handleAction(req, 'accept')">接受</n-button>
+                    <n-button size="tiny" @click="handleAction(req, 'reject')">拒绝</n-button>
                   </n-space>
                 </template>
               </n-list-item>
@@ -104,11 +104,11 @@ const fetchRequests = async () => {
     const list = res.data.data || res.data || []
     console.log('好友申请列表原始数据:', list) // 🔍 调试：查看后端返回的真实结构
     requests.value = list.map(item => {
-      // 增强 ID 解析：支持 PascalCase、camelCase 以及嵌套对象 (friendRequest.id)
-      const id = item.id ?? item.Id ?? 
-                 item.friendRequestId ?? item.FriendRequestId ?? 
+      // ⭐ 关键修改：优先查找明确的 RequestId，最后才用通用的 id，防止误取 UserID
+      const id = item.friendRequestId ?? item.FriendRequestId ?? 
                  item.requestId ?? item.RequestId ??
-                 item.friendRequest?.id ?? item.friendRequest?.Id
+                 item.friendRequest?.id ?? item.friendRequest?.Id ??
+                 item.id ?? item.Id
 
       if (!id && id !== 0) console.warn('无法解析好友申请 ID:', item)
       return {
@@ -136,8 +136,11 @@ const handleAddFriend = async () => {
   }
 }
 
-const handleAction = async (id, action) => {
-  console.log(`发送处理请求: id=${id}, action=${action}`) // 🔍 调试：确认发送的 ID 是否正确
+const handleAction = async (req, action) => {
+  const id = req.id
+  console.log(`正在处理好友申请 (${action}):`, req) // 🔍 调试：查看完整的申请对象
+  console.log(`发送请求 URL: /api/friends/requests/${id}/${action}`)
+
   if (!id && id !== 0) return message.error('无效的申请 ID')
   try {
     await chatApi.handleRequest(id, action)

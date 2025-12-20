@@ -64,11 +64,10 @@ export const useChatStore = defineStore('chat', () => {
       connection.value = null
     }
 
-    if (userStore.profile?.id) {
-      currentUserId.value = userStore.profile.id
-    } else if (typeof window !== 'undefined') {
-      const storedUid = localStorage.getItem('userId')
-      if (storedUid) currentUserId.value = Number(storedUid)
+    const profile = userStore.profile
+    if (profile) {
+      // 兼容后端可能返回的大小写不同 (id / Id / userId / UserId)
+      currentUserId.value = profile.id ?? profile.Id ?? profile.userId ?? profile.UserId ?? 0
     }
 
     const hubUrl = resolveHubUrl()
@@ -101,7 +100,7 @@ export const useChatStore = defineStore('chat', () => {
         senderId, 
         content, 
         sentAt,
-        isSelf: senderId === currentUserId.value 
+        isSelf: String(senderId) === String(currentUserId.value)
       })
     })
 
@@ -113,7 +112,7 @@ export const useChatStore = defineStore('chat', () => {
         senderId, 
         content, 
         sentAt,
-        isSelf: senderId === currentUserId.value 
+        isSelf: String(senderId) === String(currentUserId.value)
       })
     })
 
@@ -177,14 +176,17 @@ export const useChatStore = defineStore('chat', () => {
       // 兼容后端可能返回 { data: [...] } 或直接返回数组的情况
       const history = Array.isArray(res.data) ? res.data : (res.data?.data || [])
       
-      currentMessages.value = history.map(m => ({
-        ...m,
-        senderId: m.senderId ?? m.SenderId ?? m.Sender?.id ?? m.Sender?.Id,
-        content: m.content ?? m.Content ?? m.message ?? m.Message,
-        sentAt: m.sentAt ?? m.SentAt ?? m.createTime ?? m.CreateTime,
-        type: session.type,
-        isSelf: (m.senderId ?? m.SenderId ?? m.Sender?.id ?? m.Sender?.Id) === currentUserId.value
-      }))
+      currentMessages.value = history.map(m => {
+        const senderId = m.senderId ?? m.SenderId ?? m.Sender?.id ?? m.Sender?.Id
+        return {
+          ...m,
+          senderId,
+          content: m.content ?? m.Content ?? m.message ?? m.Message,
+          sentAt: m.sentAt ?? m.SentAt ?? m.createTime ?? m.CreateTime,
+          type: session.type,
+          isSelf: String(senderId) === String(currentUserId.value)
+        }
+      })
     } catch (error) {
       console.error('Failed to load history', error)
     }
