@@ -1,188 +1,144 @@
 <template>
-  <div class="note-sidebar" v-bind="$attrs">
-    <div v-if="note">
-      <div class="sidebar-section">
-        <h3 class="section-title">分类</h3>
-        <div class="control-content">
-            <n-tag
-              v-if="categoryDisplay"
-              size="small"
-              round
-              closable
-              :bordered="false"
-              @close="updateCategory(null)"
-            >
-              <span
-                class="category-dot"
-                :style="{ backgroundColor: categoryDisplay.color || '#64748b' }"
-              ></span>
-              {{ categoryDisplay.label }}
-            </n-tag>
-            <span v-else class="placeholder">未选择</span>
-            <n-button
-              v-if="!categoryDisplay"
-              quaternary
-              size="tiny"
-              type="primary"
-              @click="toggleCategoryPicker"
-            >
-              + 添加
-            </n-button>
-            <n-select
-              v-if="showCategoryPicker && !categoryDisplay"
-              size="small"
-              v-model:value="localNote.categoryId"
-              :options="categoryOptions"
-              placeholder="选择分类"
-              style="width: 200px"
-              clearable
-              @update:value="handleSelectCategory"
-              @blur="showCategoryPicker = false"
-            />
-            <div v-if="showCategoryPicker && !categoryDisplay" class="inline-create">
-              <n-color-picker v-model:value="newCategoryColor" size="small" :modes="['hex']" />
-              <n-input
-                size="small"
-                v-model:value="newCategoryName"
-                placeholder="新建分类名称"
-                style="width: 200px"
-              />
-              <n-button size="tiny" type="primary" :loading="creatingCategory" @click="handleCreateCategory">
-                新建分类
-              </n-button>
-            </div>
-          </div>
-      </div>
-
-      <div class="sidebar-section">
-        <h3 class="section-title">标签</h3>
-        <div class="control-content tags-content">
-            <div class="tag-chip-row" v-if="tagDetails.length">
-              <n-tag
-                v-for="tag in tagDetails"
-                :key="tag.id"
-                size="small"
-                round
-                closable
-                :bordered="false"
-                @close="removeTag(tag.id)"
-              >
-                {{ tag.name }}
-              </n-tag>
-            </div>
-            <n-select
-              v-if="showTagPicker"
-              size="small"
-              v-model:value="tagPickerValue"
-              multiple
-              filterable
-              :options="tagOptions"
-              placeholder="添加标签"
-              style="width: 260px"
-              clearable
-              @update:value="handleSelectTags"
-              @blur="showTagPicker = false"
-            />
-            <div v-if="showTagPicker" class="inline-create">
-              <n-color-picker v-model:value="newTagColor" size="small" :modes="['hex']" />
-              <n-input
-                size="small"
-                v-model:value="newTagName"
-                placeholder="新建标签名称"
-                style="width: 200px"
-              />
-              <n-button size="tiny" type="primary" :loading="creatingTag" @click="handleCreateTag">
-                新建标签
-              </n-button>
-            </div>
-            <n-button
-              quaternary
-              size="tiny"
-              type="primary"
-              @click="toggleTagPicker"
-            >
-              + 添加
-            </n-button>
-            <span v-if="!tagDetails.length" class="placeholder">未选择</span>
-          </div>
-      </div>
-
-      <div class="sidebar-section">
-        <h3 class="section-title">信息</h3>
-        <div class="meta-grid">
-          <div class="meta-label">创建时间</div>
-          <div class="meta-value">{{ formatTime(note.createdAt || note.createTime) }}</div>
-
-          <div class="meta-label">最近更新</div>
-          <div class="meta-value">{{ formatTime(note.updateTime || note.lastUpdateTime) }}</div>
+  <div class="note-sidebar">
+    <div v-if="!note" class="empty-tip">
+      <n-empty description="未选择笔记" />
+    </div>
+    <template v-else>
+      <div class="section">
+        <div class="section-title">信息</div>
+        <div class="info-item">
+          <span class="label">创建于</span>
+          <span class="value">{{ formatDate(note.createdAt) }}</span>
+        </div>
+        <div class="info-item">
+          <span class="label">更新于</span>
+          <span class="value">{{ formatDate(note.updateTime) }}</span>
+        </div>
+        <div class="info-item">
+          <span class="label">分类</span>
+          <span class="value">{{ note.categoryName || '未分类' }}</span>
         </div>
       </div>
-      
-      <div class="sidebar-section footer">
-        <n-button tertiary type="error" @click="emit('soft-delete', note.id)">移入回收站</n-button>
+
+      <n-divider />
+
+      <div class="section">
+        <div class="section-title">分类</div>
+        <n-select
+          v-model:value="localCategoryId"
+          :options="categoryOptions"
+          placeholder="选择分类"
+          clearable
+          filterable
+          size="small"
+          :disabled="!canEditMeta"
+          @update:value="handleCategoryChange"
+        />
       </div>
-    </div>
-    <div v-else class="empty-state">
-      <n-empty size="large" description="未选择笔记" />
-    </div>
+
+      <n-divider />
+
+      <div class="section">
+        <div class="section-title">标签</div>
+        <n-select
+          v-model:value="localTagIds"
+          :options="tagOptions"
+          placeholder="选择标签"
+          multiple
+          clearable
+          filterable
+          size="small"
+          :disabled="!canEditMeta"
+          @update:value="handleTagChange"
+        />
+        <n-space v-if="note.tags?.length" class="tag-preview" size="small">
+          <n-tag
+            v-for="tag in note.tags"
+            :key="tag.id ?? tag.tagId ?? tag.TagId"
+            :color="{ color: tag.color || tag.Color || '#94a3b8', textColor: '#fff' }"
+            size="small"
+          >
+            {{ tag.name || tag.Name }}
+          </n-tag>
+        </n-space>
+      </div>
+
+      <n-divider />
+
+      <div class="section">
+        <div class="section-title">
+          <span>附件</span>
+          <n-upload
+            :show-file-list="false"
+            :custom-request="handleUpload"
+            style="display: inline-block; margin-left: auto;"
+          >
+            <n-button size="tiny" secondary circle title="上传附件">
+              <template #icon><n-icon :component="CloudUploadOutline" /></template>
+            </n-button>
+          </n-upload>
+        </div>
+        
+        <n-spin :show="loadingAttachments">
+          <n-list hoverable clickable size="small">
+            <n-list-item v-for="att in attachments" :key="att.id">
+              <div class="attachment-item">
+                <div class="att-icon">
+                  <n-icon :component="DocumentAttachOutline" />
+                </div>
+                <div class="att-info" @click="handleDownload(att)">
+                  <div class="att-name" :title="att.fileName">{{ att.fileName }}</div>
+                  <div class="att-size">{{ formatSize(att.size) }}</div>
+                </div>
+                <n-button size="tiny" quaternary circle type="error" @click.stop="handleDeleteAttachment(att.id)">
+                  <template #icon><n-icon :component="TrashOutline" /></template>
+                </n-button>
+              </div>
+            </n-list-item>
+            <n-empty v-if="!attachments.length" description="无附件" size="small" />
+          </n-list>
+        </n-spin>
+      </div>
+
+      <div class="footer-actions">
+        <n-button type="error" ghost block @click="$emit('soft-delete', note.id)">
+          移入回收站
+        </n-button>
+      </div>
+    </template>
   </div>
 </template>
 
 <script setup>
-import { computed, reactive, ref, watch } from 'vue'
-import {
-  NButton,
-  NTag,
-  NEmpty,
-  NSelect,
-  NColorPicker,
-  NInput,
-  useMessage
-} from 'naive-ui'
+import { computed, ref, watch } from 'vue'
+import { NEmpty, NDivider, NSpace, NTag, NButton, NList, NListItem, NIcon, NSpin, NUpload, NSelect, useMessage } from 'naive-ui'
+import { CloudUploadOutline, DocumentAttachOutline, TrashOutline } from '@vicons/ionicons5'
 import { format } from 'date-fns'
-import { useCategoryStore } from '@/store/categoryStore'
-import { useTagStore } from '@/store/tagStore'
+import noteApi from '@/api/note'
+import { downloadAuthFile } from '@/api/resource'
 
 const props = defineProps({
-  note: {
-    type: Object,
-    default: null
+  note: Object,
+  saving: Boolean,
+  categoryOptions: {
+    type: Array,
+    default: () => []
   },
-  saving: {
-    type: Boolean,
-    default: false
+  tagOptions: {
+    type: Array,
+    default: () => []
   }
 })
 
 const emit = defineEmits(['update-note', 'soft-delete'])
-
 const message = useMessage()
 
-// A local, reactive copy of the note's metadata
-const localNote = reactive({
-  id: null,
-  title: '',
-  content: '',
-  categoryId: null,
-  tagIds: []
-})
+const attachments = ref([])
+const loadingAttachments = ref(false)
+const localCategoryId = ref(null)
+const localTagIds = ref([])
 
-const categoryStore = useCategoryStore()
-const tagStore = useTagStore()
-
-const categoryOptions = computed(() => categoryStore.options)
-const tagOptions = computed(() => tagStore.options)
-
-const showCategoryPicker = ref(false)
-const showTagPicker = ref(false)
-const tagPickerValue = ref([])
-const tagsDirty = ref(false)
-const newCategoryName = ref('')
-const creatingCategory = ref(false)
-const newCategoryColor = ref('#FF9933')
-const newTagName = ref('')
-const creatingTag = ref(false)
-const newTagColor = ref('#00AAFF')
+const formatDate = (ts) => ts ? format(new Date(ts), 'yyyy-MM-dd HH:mm') : '-'
 
 const normaliseId = (value) => {
   if (value === null || value === undefined) return null
@@ -190,232 +146,124 @@ const normaliseId = (value) => {
   return Number.isNaN(num) ? value : num
 }
 
+const resolveTagIds = (note) => {
+  if (!note) return []
+  if (Array.isArray(note.tagIds)) {
+    return note.tagIds.map((id) => normaliseId(id)).filter((id) => id !== null && id !== undefined)
+  }
+  if (Array.isArray(note.tags)) {
+    return note.tags
+      .map((tag) => normaliseId(tag?.id ?? tag?.tagId ?? tag?.TagId))
+      .filter((id) => id !== null && id !== undefined)
+  }
+  return []
+}
+
+const canEditMeta = computed(() => Boolean(props.note?.id) && !props.saving)
+
+const formatSize = (bytes) => {
+  if (bytes === 0) return '0 B'
+  const k = 1024
+  const sizes = ['B', 'KB', 'MB', 'GB']
+  const i = Math.floor(Math.log(bytes) / Math.log(k))
+  return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i]
+}
+
+const loadAttachments = async () => {
+  if (!props.note?.id) return
+  loadingAttachments.value = true
+  try {
+    const res = await noteApi.getAttachments(props.note.id)
+    attachments.value = res.data.data || res.data || []
+  } catch (e) {
+    console.error(e)
+  } finally {
+    loadingAttachments.value = false
+  }
+}
+
+const handleUpload = async ({ file }) => {
+  try {
+    await noteApi.uploadAttachment(props.note.id, file.file)
+    message.success('上传成功')
+    loadAttachments()
+  } catch (e) {
+    message.error('上传失败')
+  }
+}
+
+const handleDownload = async (att) => {
+  try {
+    await downloadAuthFile(att.downloadUrl, att.fileName)
+  } catch (e) {
+    message.error('下载失败')
+  }
+}
+
+const handleDeleteAttachment = async (id) => {
+  try {
+    await noteApi.deleteAttachment(id)
+    message.success('已删除')
+    loadAttachments()
+  } catch (e) {
+    message.error('删除失败')
+  }
+}
+
+const handleCategoryChange = (value) => {
+  if (!props.note?.id) return
+  emit('update-note', {
+    id: props.note.id,
+    payload: {
+      categoryId: value ?? null
+    }
+  })
+}
+
+const handleTagChange = (value) => {
+  if (!props.note?.id) return
+  emit('update-note', {
+    id: props.note.id,
+    payload: {
+      tagIds: Array.isArray(value) ? value : []
+    },
+    tagsChanged: true
+  })
+}
+
 watch(
   () => props.note,
-  (value) => {
-    if (!value) {
-      localNote.id = null
-      localNote.title = ''
-      localNote.content = ''
-      localNote.categoryId = null
-      localNote.tagIds = []
-      tagsDirty.value = false
-      return
-    }
-
-    // Keep title and content in sync for save payloads
-    localNote.id = value.id
-    localNote.title = value.title || ''
-    localNote.content = value.contentJson ?? value.content ?? ''
-    
-    localNote.categoryId = normaliseId(value.categoryId ?? null)
-    localNote.tagIds = (value.tagIds || []).map(id => normaliseId(id)).filter(Boolean)
-    tagPickerValue.value = [...localNote.tagIds]
-    tagsDirty.value = false
+  (note) => {
+    localCategoryId.value = normaliseId(note?.categoryId)
+    localTagIds.value = resolveTagIds(note)
   },
   { immediate: true, deep: true }
 )
 
-const categoryDisplay = computed(() => {
-  const id = localNote.categoryId
-  if (id === null || id === undefined || id === '') return null
-  const matched = categoryStore.categories.find((item) => String(item.id) === String(id))
-  return matched ? { label: matched.name, color: matched.color, value: id } : null
-})
-
-const tagDetails = computed(() => {
-  return (localNote.tagIds || []).map(id => {
-    return tagStore.tags.find(item => String(item.id) === String(id)) || { id, name: `Tag #${id}` }
-  }).filter(Boolean)
-})
-
-
-const payload = computed(() => ({
-  title: localNote.title,
-  content: localNote.content,
-  contentJson: localNote.content,
-  categoryId: localNote.categoryId ?? null,
-  tagIds: Array.isArray(localNote.tagIds) ? [...localNote.tagIds] : []
-}))
-
-const triggerSave = () => {
-  if (!localNote.id) return
-  emit('update-note', { id: localNote.id, payload: payload.value, tagsChanged: tagsDirty.value })
-  tagsDirty.value = false
-}
-
-const updateCategory = async (value) => {
-  if (!localNote.id) return
-  localNote.categoryId = value ?? null
-  tagsDirty.value = true
-  triggerSave()
-  showCategoryPicker.value = false
-}
-
-const handleSelectCategory = async (value) => {
-  await updateCategory(value)
-}
-
-const toggleCategoryPicker = () => {
-  showCategoryPicker.value = !showCategoryPicker.value
-}
-
-const handleCreateCategory = async () => {
-  const name = newCategoryName.value.trim()
-  if (!name) return message.warning('请输入分类名称')
-  creatingCategory.value = true
-  try {
-    const created = await categoryStore.createCategory({ name, color: newCategoryColor.value || '' })
-    if (created && created.id) {
-      localNote.categoryId = created.id
-      message.success('分类已创建并选中')
-      tagsDirty.value = true
-      triggerSave()
-    }
-  } finally {
-    creatingCategory.value = false
-    newCategoryName.value = ''
-    showCategoryPicker.value = false
-  }
-}
-
-const removeTag = (tagId) => {
-  localNote.tagIds = localNote.tagIds.filter(id => String(id) !== String(tagId))
-  tagPickerValue.value = [...localNote.tagIds]
-  tagsDirty.value = true
-  triggerSave()
-}
-
-const handleSelectTags = (value) => {
-  localNote.tagIds = value
-  tagPickerValue.value = value
-  tagsDirty.value = true
-  triggerSave()
-  showTagPicker.value = false
-}
-
-const toggleTagPicker = () => {
-  showTagPicker.value = !showTagPicker.value
-}
-
-const handleCreateTag = async () => {
-  const name = newTagName.value.trim()
-  if (!name) return message.warning('请输入标签名称')
-  creatingTag.value = true
-  try {
-    const created = await tagStore.createTag({ name, color: newTagColor.value || '' })
-    if (created && created.id) {
-      localNote.tagIds.push(created.id)
-      tagPickerValue.value = [...localNote.tagIds]
-      message.success('标签已创建并选中')
-      tagsDirty.value = true
-      triggerSave()
-    }
-  } finally {
-    creatingTag.value = false
-    newTagName.value = ''
-    showTagPicker.value = false
-  }
-}
-
-const formatTime = (value) => {
-  if (!value) return '--'
-  try {
-    return format(new Date(value), 'yyyy-MM-dd HH:mm')
-  } catch {
-    return value
-  }
-}
+watch(
+  () => props.note?.id,
+  (newId) => {
+    if (newId) loadAttachments()
+    else attachments.value = []
+  },
+  { immediate: true }
+)
 </script>
 
 <style scoped>
-.note-sidebar {
-  height: 100%;
-  min-height: 0;
-  background: #fff;
-  border: 1px solid #eef2f8;
-  border-radius: 12px;
-  padding: 16px;
-  display: flex;
-  flex-direction: column;
-  gap: 20px;
-  overflow-y: auto;
-}
-
-.section-title {
-  font-size: 14px;
-  font-weight: 600;
-  color: #334155;
-  margin-bottom: 12px;
-}
-
-.control-content {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 8px;
-}
-
-.control-content.tags-content {
-  align-items: flex-start;
-}
-
-.tag-chip-row {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-}
-
-.category-dot {
-  display: inline-block;
-  width: 10px;
-  height: 10px;
-  border-radius: 50%;
-  margin-right: 6px;
-}
-
-.placeholder {
-  color: #9ca3af;
-  font-size: 12px;
-}
-
-.inline-create {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.meta-grid {
-  display: grid;
-  grid-template-columns: auto 1fr;
-  gap: 8px 12px;
-  font-size: 13px;
-}
-
-.meta-label {
-  color: #64748b;
-  text-align: right;
-}
-
-.meta-value {
-  color: #334155;
-  font-weight: 500;
-}
-
-.empty-state {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  height: 100%;
-  color: #9ca3af;
-}
-
-.footer {
-  margin-top: auto;
-  display: flex;
-}
-
-.footer .n-button {
-  width: 100%;
-}
+.note-sidebar { padding: 16px; height: 100%; display: flex; flex-direction: column; }
+.empty-tip { display: flex; align-items: center; justify-content: center; height: 100%; color: #999; }
+.section { margin-bottom: 16px; }
+.section-title { font-weight: 600; margin-bottom: 8px; display: flex; align-items: center; justify-content: space-between; }
+.section :deep(.n-select) { width: 100%; }
+.info-item { display: flex; justify-content: space-between; font-size: 13px; margin-bottom: 6px; }
+.label { color: #666; }
+.value { color: #333; }
+.attachment-item { display: flex; align-items: center; gap: 8px; width: 100%; }
+.att-icon { font-size: 20px; color: #666; }
+.att-info { flex: 1; min-width: 0; cursor: pointer; }
+.att-name { font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.att-size { font-size: 11px; color: #999; }
+.tag-preview { margin-top: 8px; flex-wrap: wrap; }
+.footer-actions { margin-top: auto; }
 </style>

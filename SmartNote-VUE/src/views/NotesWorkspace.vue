@@ -26,6 +26,8 @@
         class="note-panel"
         :note="selectedNote"
         :saving="noteSaving"
+        :category-options="categoryOptions"
+        :tag-options="tagOptions"
         @update-note="handleUpdateNote"
         @soft-delete="handleSoftDelete"
       />

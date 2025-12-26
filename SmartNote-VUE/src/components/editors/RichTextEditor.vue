@@ -173,7 +173,6 @@ import { onBeforeUnmount, watch } from 'vue';
 import { NButton, NTooltip, NSpace, NButtonGroup, NDropdown, NIcon } from 'naive-ui';
 import { EditorContent, useEditor } from '@tiptap/vue-3';
 import StarterKit from '@tiptap/starter-kit';
-import Underline from '@tiptap/extension-underline';
 import Placeholder from '@tiptap/extension-placeholder';
 import { TextStyle } from '@tiptap/extension-text-style';
 import { Color } from '@tiptap/extension-color';
@@ -220,7 +219,6 @@ const emit = defineEmits(['update:modelValue']);
 const editor = useEditor({
 	extensions: [
 		StarterKit,
-		Underline,
 		TextStyle,
 		Color,
 		Highlight.configure({ multicolor: true }),

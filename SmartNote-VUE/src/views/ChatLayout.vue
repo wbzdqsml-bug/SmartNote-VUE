@@ -151,6 +151,7 @@ import FriendManager from '@/components/FriendManager.vue'
 import { NTabs, NTabPane, NAvatar, NInput, NButton, NIcon, NSpin, NEmpty, NModal, NBadge, useMessage, NAlert } from 'naive-ui'
 import { PersonAddOutline, EllipsisHorizontal, ArrowDown } from '@vicons/ionicons5'
 import { format } from 'date-fns'
+import { resolveStaticUrl } from '@/api/resource'
 
 const chatStore = useChatStore()
 const activeTab = ref('friends')
@@ -179,7 +180,7 @@ const loadLists = async () => {
         ...item,
         id: id,
         nickname: item.nickname ?? item.Nickname ?? item.username ?? item.Username,
-        avatar: item.avatar ?? item.Avatar
+        avatar: resolveStaticUrl(item.avatar ?? item.Avatar)
       }
     }).filter(item => item.id || item.id === 0) // 过滤掉无效 ID (保留 0)
 

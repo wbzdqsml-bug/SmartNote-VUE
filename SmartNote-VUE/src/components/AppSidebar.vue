@@ -22,7 +22,9 @@
 
     <div class="footer">
       <div class="user">
-        <n-avatar size="large" class="avatar">{{ displayInitial }}</n-avatar>
+        <n-avatar size="large" class="avatar" :src="avatarUrl">
+          {{ displayInitial }}
+        </n-avatar>
         <div class="meta">
           <span class="name">{{ displayName }}</span>
           <n-button text size="tiny" type="primary" @click="$emit('open-profile')">
@@ -38,8 +40,9 @@
 </template>
 
 <script setup>
-import { computed, ref } from 'vue'
+import { computed } from 'vue'
 import { NLayoutSider, NButton, NMenu, NAvatar } from 'naive-ui'
+import { resolveStaticUrl } from '@/api/resource'
 
 const emit = defineEmits(['create-note', 'update:active', 'open-profile', 'logout'])
 
@@ -73,6 +76,7 @@ const displayInitial = computed(() => {
 })
 
 const displayName = computed(() => props.profile?.nickname || props.profile?.username || '未登录')
+const avatarUrl = computed(() => resolveStaticUrl(props.profile?.avatar ?? props.profile?.avatarUrl))
 
 const handleSelect = (key) => {
   emit('update:active', key)

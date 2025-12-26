@@ -69,6 +69,7 @@
 import { ref, onMounted } from 'vue'
 import { NCard, NTabs, NTabPane, NInput, NInputGroup, NButton, NList, NListItem, NAvatar, NSpin, NEmpty, NSpace, NBadge, useMessage } from 'naive-ui'
 import chatApi from '@/api/chat'
+import { resolveStaticUrl } from '@/api/resource'
 
 const emit = defineEmits(['chat'])
 const message = useMessage()
@@ -90,7 +91,7 @@ const fetchFriends = async () => {
       id: item.id ?? item.Id ?? item.friendId ?? item.FriendId,
       nickname: item.nickname ?? item.Nickname,
       username: item.username ?? item.Username,
-      avatar: item.avatar ?? item.Avatar
+      avatar: resolveStaticUrl(item.avatar ?? item.Avatar)
     }))
   } finally {
     loadingFriends.value = false

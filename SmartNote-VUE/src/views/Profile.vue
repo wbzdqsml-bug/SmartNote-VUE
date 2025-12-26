@@ -86,6 +86,7 @@ import { computed, onMounted, reactive, ref } from 'vue'
 import { useMessage, NCard, NButton, NTag, NAvatar, NInput, NForm, NGrid, NFormItemGi } from 'naive-ui'
 import { useUserStore } from '@/store/userStore'
 import userApi from '@/api/user'
+import { resolveStaticUrl } from '@/api/resource'
 
 const userStore = useUserStore()
 const message = useMessage()
@@ -137,8 +138,9 @@ const loadProfile = async () => {
     form.email = data.email ?? ''
     form.phone = data.phone ?? ''
     form.bio = data.bio ?? ''
-    form.avatarUrl = data.avatarUrl ?? ''
-    avatarPreview.value = form.avatarUrl
+    const avatarUrl = data.avatarUrl ?? data.avatar ?? ''
+    form.avatarUrl = avatarUrl
+    avatarPreview.value = resolveStaticUrl(avatarUrl)
     editMode.value = false
   } catch (error) {
     console.error('[Profile] loadProfile error:', error)
@@ -155,17 +157,19 @@ const save = async () => {
       nickname: form.nickname,
       email: form.email,
       phone: form.phone,
-      bio: form.bio,
-      avatarUrl: form.avatarUrl
+      bio: form.bio
     })
     message.success('资料已更新')
+    const resolvedAvatar =
+      form.avatarUrl || userStore.profile?.avatar || userStore.profile?.avatarUrl || ''
     userStore.setProfile({
       ...userStore.profile,
       nickname: form.nickname || userStore.profile?.nickname,
       username: userStore.profile?.username,
       email: form.email,
       phone: form.phone,
-      avatarUrl: form.avatarUrl,
+      avatar: resolvedAvatar,
+      avatarUrl: resolvedAvatar,
       bio: form.bio
     })
     await loadProfile()
@@ -190,15 +194,32 @@ const triggerUpload = () => {
   fileInput.value?.click()
 }
 
-const handleFile = (e) => {
+const handleFile = async (e) => {
   const file = e?.target?.files?.[0]
   if (!file) return
-  const reader = new FileReader()
-  reader.onload = () => {
-    form.avatarUrl = reader.result
-    avatarPreview.value = reader.result
+  const previousUrl = form.avatarUrl
+  const previewUrl = URL.createObjectURL(file)
+  avatarPreview.value = previewUrl
+  try {
+    const uploadedUrl = await userStore.uploadAvatar(file)
+    if (uploadedUrl) {
+      form.avatarUrl = uploadedUrl
+      avatarPreview.value = resolveStaticUrl(uploadedUrl)
+      message.success('头像已更新')
+    } else {
+      message.warning('头像上传成功但未返回地址')
+      avatarPreview.value = resolveStaticUrl(previousUrl)
+    }
+  } catch (error) {
+    console.error('[Profile] upload avatar error:', error)
+    message.error(error?.response?.data?.message || '头像上传失败，请稍后再试')
+    avatarPreview.value = resolveStaticUrl(previousUrl)
+  } finally {
+    URL.revokeObjectURL(previewUrl)
+    if (e?.target) {
+      e.target.value = ''
+    }
   }
-  reader.readAsDataURL(file)
 }
 
 onMounted(() => {

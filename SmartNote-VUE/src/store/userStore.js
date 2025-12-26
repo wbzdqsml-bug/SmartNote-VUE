@@ -27,6 +27,17 @@ const resolvePayload = (response, fallback = {}) => {
   return fallback
 }
 
+const normaliseProfile = (payload) => {
+  if (!payload || typeof payload !== 'object') return payload
+  const avatar = payload.avatar ?? payload.avatarUrl ?? payload.Avatar ?? payload.AvatarUrl
+  if (!avatar) return payload
+  return {
+    ...payload,
+    avatar,
+    avatarUrl: payload.avatarUrl ?? payload.avatar ?? avatar
+  }
+}
+
 export const useUserStore = defineStore('user', {
   state: () => ({
     token: localStorage.getItem('token') || '',
@@ -78,6 +89,48 @@ export const useUserStore = defineStore('user', {
       window.location.href = '/login'
     },
 
+    // 更新基本资料 (email, phone, bio)
+    async updateProfile(info) {
+      try {
+        await request.put('/user/profile', info)
+        // 更新成功后，同步更新本地状态
+        if (this.profile) {
+          this.setProfile({ ...this.profile, ...info })
+        }
+      } catch (error) {
+        console.error('[userStore] updateProfile error:', error)
+        throw error
+      }
+    },
+
+    // 上传头像
+    async uploadAvatar(file) {
+      if (file.size > 2 * 1024 * 1024) {
+        throw new Error('头像文件大小不能超过 2MB')
+      }
+
+      const formData = new FormData()
+      formData.append('file', file)
+
+      try {
+        const response = await request.post('/user/profile/avatar', formData, {
+          headers: { 'Content-Type': 'multipart/form-data' }
+        })
+        const data = resolvePayload(response, {})
+        const avatarUrl = data.avatarUrl ?? data.avatar
+        if (avatarUrl) {
+          if (this.profile) {
+            this.setProfile({ ...this.profile, avatar: avatarUrl, avatarUrl })
+          }
+          return avatarUrl
+        }
+        return null
+      } catch (error) {
+        console.error('[userStore] uploadAvatar error:', error)
+        throw error
+      }
+    },
+
     async fetchProfile() {
       if (!this.token) return null
       if (!PROFILE_FETCH_ENABLED) {
@@ -89,7 +142,7 @@ export const useUserStore = defineStore('user', {
         const response = await userApi.profile()
         const payload = resolvePayload(response, null)
         if (payload) {
-          this.setProfile(payload)
+          this.setProfile(normaliseProfile(payload))
         }
         return payload
       } catch (error) {
