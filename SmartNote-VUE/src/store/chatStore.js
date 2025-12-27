@@ -76,29 +76,28 @@ export const useChatStore = defineStore('chat', () => {
         accessTokenFactory: () => getStoredToken()
       })
       .withAutomaticReconnect()
-      .configureLogging(LogLevel.Trace)
+      .configureLogging(LogLevel.Information)
       .build()
 
     // 监听连接状态变化
     connection.value.onclose((error) => {
       isConnected.value = false
-      console.error('SignalR Connection Closed:', error)
-      handleSignalRError(error)
+      // 只有在非手动断开的情况下才处理错误
+      if (error) {
+        handleSignalRError(error)
+      }
     })
     connection.value.onreconnecting((error) => {
       isConnected.value = false
-      console.warn('SignalR Reconnecting:', error)
       handleSignalRError(error)
     })
-    connection.value.onreconnected((reconnectedId) => { 
+    connection.value.onreconnected(() => { 
       isConnected.value = true 
-      console.log(`SignalR Reconnected with new id ${reconnectedId}`)
       // 待重连后刷新状态，例如重新拉取未读
     })
 
     // 监听私聊消息
     connection.value.on('ReceivePrivateMessage', (senderId, content, sentAt) => {
-      console.log('Received private message:', { senderId, content, sentAt })
       handleIncomingMessage({ 
         type: 'private', 
         senderId, 
@@ -110,7 +109,6 @@ export const useChatStore = defineStore('chat', () => {
 
     // 监听工作区消息
     connection.value.on('ReceiveWorkspaceMessage', (workspaceId, senderId, content, sentAt) => {
-      console.log('Received workspace message:', { workspaceId, senderId, content, sentAt })
       handleIncomingMessage({ 
         type: 'workspace', 
         workspaceId, 
@@ -124,19 +122,25 @@ export const useChatStore = defineStore('chat', () => {
     try {
       await connection.value.start()
       isConnected.value = true
-      console.log('SignalR Connected with connectionId:', connection.value.connectionId)
+      console.log('SignalR Connected')
     } catch (err) {
-      console.error('SignalR Connection Failed during start():', err)
+      console.error('SignalR Connection Error:', err)
       handleSignalRError(err)
     }
   }
 
-  // 断开连接
+  // [修改] 断开连接 - 增加 try-catch 防止报错
   const disconnect = async () => {
     if (connection.value) {
-      await connection.value.stop()
-      isConnected.value = false
-      connection.value = null
+      try {
+        await connection.value.stop()
+      } catch (err) {
+        // 忽略断开连接时的错误（例如连接已关闭）
+        console.warn('SignalR disconnect warning (can be ignored):', err)
+      } finally {
+        isConnected.value = false
+        connection.value = null
+      }
     }
   }
 
@@ -221,7 +225,6 @@ export const useChatStore = defineStore('chat', () => {
       }
     } catch (error) {
       console.error('Send message failed', error)
-      // 发送失败，如果做了乐观更新需要回滚（这里简单处理为抛出异常，UI层可以提示）
       throw error
     }
   }

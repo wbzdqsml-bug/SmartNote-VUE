@@ -3,7 +3,7 @@
     <div v-if="!note" class="empty-tip">
       <n-empty description="未选择笔记" />
     </div>
-    <template v-else>
+    <template v-else-if="sidebarReady">
       <div class="section">
         <div class="section-title">信息</div>
         <div class="info-item">
@@ -137,6 +137,7 @@ const attachments = ref([])
 const loadingAttachments = ref(false)
 const localCategoryId = ref(null)
 const localTagIds = ref([])
+const sidebarReady = ref(true)
 
 const formatDate = (ts) => ts ? format(new Date(ts), 'yyyy-MM-dd HH:mm') : '-'
 
@@ -232,19 +233,21 @@ const handleTagChange = (value) => {
 }
 
 watch(
-  () => props.note,
-  (note) => {
-    localCategoryId.value = normaliseId(note?.categoryId)
-    localTagIds.value = resolveTagIds(note)
-  },
-  { immediate: true, deep: true }
-)
-
-watch(
   () => props.note?.id,
-  (newId) => {
-    if (newId) loadAttachments()
-    else attachments.value = []
+  (newId, oldId) => {
+    if (newId === oldId && sidebarReady.value) return
+
+    sidebarReady.value = false
+    setTimeout(() => {
+      if (newId) {
+        localCategoryId.value = normaliseId(props.note?.categoryId)
+        localTagIds.value = resolveTagIds(props.note)
+        loadAttachments()
+      } else {
+        attachments.value = []
+      }
+      sidebarReady.value = true
+    }, 0)
   },
   { immediate: true }
 )

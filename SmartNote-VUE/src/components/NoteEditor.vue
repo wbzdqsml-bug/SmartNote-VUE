@@ -32,11 +32,12 @@
           </div>
         </div>
 
-        <div class="editor-row">
+        <div class="editor-row" :key="localNote.id" v-if="editorReady">
           <component
             :is="currentEditor"
             v-model="localNote.content"
             class="dynamic-editor"
+            :note-id="localNote.id"
             @update:modelValue="onFieldChange"
           />
         </div>
@@ -59,7 +60,6 @@
       />
     </n-drawer>
 
-
     <div v-if="showExpanded" class="editor-overlay" @click.self="showExpanded = false">
       <div class="overlay-card">
         <div class="overlay-header">
@@ -78,8 +78,14 @@
             <n-button size="small" type="primary" :loading="saving" @click="handleSaveAndClose">保存并关闭</n-button>
           </div>
         </div>
-        <div class="overlay-editor-content">
-          <component :is="currentEditor" v-model="localNote.content" class="dynamic-editor overlay-editor" @update:modelValue="onFieldChange" />
+        <div class="overlay-editor-content" :key="localNote.id" v-if="editorReady">
+          <component 
+            :is="currentEditor" 
+            v-model="localNote.content" 
+            class="dynamic-editor overlay-editor" 
+            :note-id="localNote.id"
+            @update:modelValue="onFieldChange" 
+          />
         </div>
       </div>
     </div>
@@ -87,7 +93,7 @@
 </template>
 
 <script setup>
-import { computed, reactive, ref, watch } from 'vue'
+import { computed, reactive, ref, watch, nextTick } from 'vue'
 import { NCard, NInput, NButton, NTag, NEmpty, NIcon, NPopover, NDrawer } from 'naive-ui'
 import { noteTypeMap, defaultContentByType } from '@/constants/noteTypes'
 import MarkdownEditor from '@/components/editors/MarkdownEditor.vue'
@@ -122,10 +128,11 @@ const localNote = reactive({
   title: '',
   content: '',
   type: 0,
-  workspaceId: null // Add workspaceId here
+  workspaceId: null
 })
 const showExpanded = ref(false)
 const showAIPanel = ref(false)
+const editorReady = ref(true)
 
 const currentEditor = computed(() => editorMap[localNote.type] || MarkdownEditor)
 const currentTypeLabel = computed(() => noteTypeMap[localNote.type] || '笔记')
@@ -138,18 +145,23 @@ watch(
       localNote.title = ''
       localNote.content = ''
       localNote.type = 0
+      localNote.workspaceId = null
       return
     }
 
     if (localNote.id !== value.id) {
-      const noteType = typeof value.type === 'number' ? value.type : Number(value.type ?? 0)
-      const resolvedType = Number.isNaN(noteType) ? 0 : noteType
-      
-      localNote.id = value.id
-      localNote.title = value.title || ''
-      localNote.type = resolvedType
-      localNote.content = value.contentJson ?? value.content ?? defaultContentByType[resolvedType] ?? ''
-      localNote.workspaceId = value.workspaceId ?? value.WorkspaceId ?? null
+      editorReady.value = false
+      setTimeout(() => {
+        const noteType = typeof value.type === 'number' ? value.type : Number(value.type ?? 0)
+        const resolvedType = Number.isNaN(noteType) ? 0 : noteType
+        
+        localNote.id = value.id
+        localNote.title = value.title || ''
+        localNote.type = resolvedType
+        localNote.content = value.contentJson ?? value.content ?? defaultContentByType[resolvedType] ?? ''
+        localNote.workspaceId = value.workspaceId ?? value.WorkspaceId ?? null
+        editorReady.value = true
+      }, 0)
     }
   },
   { immediate: true }
@@ -171,7 +183,6 @@ const handleSave = () => {
       title: localNote.title,
       content: localNote.content,
       contentJson: localNote.content,
-      // Preserve metadata to prevent accidental clearing
       categoryId: props.note?.categoryId ?? null,
       tagIds: props.note?.tagIds ?? []
     }

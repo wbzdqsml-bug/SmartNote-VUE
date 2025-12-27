@@ -1,13 +1,11 @@
 <template>
   <div class="chat-layout">
-    <!-- 连接状态指示器 -->
     <div v-if="isReady && !chatStore.isConnected" class="connection-banner">
       <n-alert type="error" :show-icon="true" :bordered="false" class="connection-alert">
         网络连接已断开，正在尝试重连...
       </n-alert>
     </div>
 
-    <!-- 左侧侧边栏 -->
     <div class="chat-sidebar">
       <div class="sidebar-header">
         <n-tabs type="segment" v-model:value="activeTab" size="small">
@@ -18,7 +16,6 @@
 
       <div class="sidebar-list">
         <n-spin :show="loadingList">
-          <!-- 好友列表 -->
           <div v-if="activeTab === 'friends'">
             <div 
               class="list-item manage-item" 
@@ -47,7 +44,6 @@
             </div>
           </div>
 
-          <!-- 工作区列表 -->
           <div v-if="activeTab === 'workspaces'">
             <div 
               v-for="ws in workspaces" 
@@ -71,10 +67,8 @@
       </div>
     </div>
 
-    <!-- 右侧聊天区域 -->
     <div class="chat-main">
       <template v-if="chatStore.activeSession">
-        <!-- 聊天头部 -->
         <div class="chat-header">
           <div class="header-title">{{ chatStore.activeSession.name }}</div>
           <div class="header-actions">
@@ -82,7 +76,6 @@
           </div>
         </div>
 
-        <!-- 消息列表 -->
         <div class="message-area" ref="messageContainer" @scroll="handleScroll">
           <div 
             v-for="(msg, index) in chatStore.currentMessages" 
@@ -95,19 +88,28 @@
               size="small" 
               round 
               class="msg-avatar"
-              src="https://07akioni.oss-cn-beijing.aliyuncs.com/07akioni.jpeg" 
+              :src="chatStore.activeSession?.type === 'private' ? chatStore.activeSession?.avatar : 'https://07akioni.oss-cn-beijing.aliyuncs.com/07akioni.jpeg'" 
+              fallback-src="https://07akioni.oss-cn-beijing.aliyuncs.com/07akioni.jpeg"
             />
+
             <div class="message-content-wrapper">
               <div class="message-bubble">
                 {{ msg.content }}
               </div>
               <div class="message-time">{{ formatTime(msg.sentAt) }}</div>
             </div>
-            <n-avatar v-if="msg.isSelf" size="small" round class="msg-avatar" src="https://07akioni.oss-cn-beijing.aliyuncs.com/07akioni.jpeg" />
+
+            <n-avatar 
+              v-if="msg.isSelf" 
+              size="small" 
+              round 
+              class="msg-avatar" 
+              :src="resolveStaticUrl(userStore.profile?.avatar)" 
+              fallback-src="https://07akioni.oss-cn-beijing.aliyuncs.com/07akioni.jpeg" 
+            />
           </div>
         </div>
 
-        <!-- 新消息提示 -->
         <div v-if="showNewMessageTip" class="new-message-tip" @click="scrollToBottom">
           <n-button round type="primary" size="small" class="tip-btn">
             <template #icon><n-icon :component="ArrowDown" /></template>
@@ -115,7 +117,6 @@
           </n-button>
         </div>
 
-        <!-- 输入框 -->
         <div class="input-area">
           <n-input
             v-model:value="inputText"
@@ -136,7 +137,6 @@
       </div>
     </div>
 
-    <!-- 好友管理弹窗 -->
     <n-modal v-model:show="showFriendManager" preset="card" style="width: 600px" title="好友管理">
       <FriendManager @chat="handleStartChatFromManager" />
     </n-modal>
@@ -146,6 +146,7 @@
 <script setup>
 import { ref, onMounted, onUnmounted, nextTick, watch } from 'vue'
 import { useChatStore } from '@/store/chatStore'
+import { useUserStore } from '@/store/userStore' // [Modified] 引入 userStore
 import chatApi from '@/api/chat'
 import FriendManager from '@/components/FriendManager.vue'
 import { NTabs, NTabPane, NAvatar, NInput, NButton, NIcon, NSpin, NEmpty, NModal, NBadge, useMessage, NAlert } from 'naive-ui'
@@ -154,6 +155,7 @@ import { format } from 'date-fns'
 import { resolveStaticUrl } from '@/api/resource'
 
 const chatStore = useChatStore()
+const userStore = useUserStore() // [Modified] 初始化 userStore
 const activeTab = ref('friends')
 const friends = ref([])
 const workspaces = ref([])
@@ -277,6 +279,10 @@ watch(() => chatStore.currentMessages.length, (newLen) => {
 
 onMounted(async () => {
   try {
+    // 确保已获取最新的用户资料（如果 userStore 中没有的话）
+    if (!userStore.profile) {
+      await userStore.fetchProfile()
+    }
     await chatStore.connect()
   } finally {
     isReady.value = true

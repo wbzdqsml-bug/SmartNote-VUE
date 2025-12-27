@@ -1,232 +1,156 @@
 ﻿<template>
   <div class="markdown-editor">
-    <div class="pane-card single-pane">
-      <div class="editor-header" v-if="!readOnly">
-        <span class="editor-title">{{ previewMode ? 'Markdown 预览' : 'Markdown 编辑' }}</span>
-        <n-button size="tiny" secondary strong @click="togglePreview">
-          {{ previewMode ? '返回编辑' : '预览' }}
+    <div class="editor-header" v-if="!readOnly">
+      <span class="editor-title">{{ previewMode ? '预览模式' : '编辑模式' }}</span>
+      <div class="header-actions">
+          <n-button size="tiny" secondary strong @click="togglePreview">
+          {{ previewMode ? '编辑' : '预览' }}
         </n-button>
       </div>
-      <div v-if="!currentPreviewMode" class="editor-body">
-        <n-input
-          ref="inputRef"
-          v-model:value="localValue"
-          type="textarea"
-          :placeholder="placeholder"
-          :autosize="false"
-          :rows="20"
-          :readonly="readOnly"
-        />
-      </div>
-      <div v-else class="preview-body">
-        <n-scrollbar class="preview">
-          <div class="preview-content" v-html="rendered"></div>
-        </n-scrollbar>
-      </div>
     </div>
+    
+    <div v-if="!currentPreviewMode" class="editor-body">
+      <n-input ref="inputRef" v-model:value="localValue" type="textarea" :placeholder="placeholder" :autosize="false" class="md-input" @paste="handlePaste" />
+    </div>
+
+    <div v-else class="preview-body" @click="handlePreviewClick">
+      <n-scrollbar class="preview">
+        <div class="preview-content" v-html="rendered"></div>
+      </n-scrollbar>
+    </div>
+
+    <FilePreviewModal v-model:show="showPreview" :url="previewUrl" :type="previewType" />
   </div>
 </template>
 
 <script setup>
 import { computed, nextTick, ref, watch } from 'vue'
-import { NInput, NScrollbar, NButton } from 'naive-ui'
+import { useUserStore } from '@/store/userStore' // [新增]
+// ... 其他 import 保持不变
+import { NInput, NScrollbar, NButton, useMessage } from 'naive-ui'
 import MarkdownIt from 'markdown-it'
-import markdownItKatex from 'markdown-it-katex'
+import noteApi from '@/api/note'
+import FilePreviewModal from '@/components/FilePreviewModal.vue'
 
+// ... props, emit ...
 const props = defineProps({
-  modelValue: {
-    type: String,
-    default: ''
-  },
-  placeholder: {
-    type: String,
-    default: '# 新建 Markdown 笔记\n\n支持 **粗体**、斜体、列表、代码块等基础语法'
-  },
-  readOnly: {
-    type: Boolean,
-    default: false
-  }
+  modelValue: { type: String, default: '' },
+  readOnly: { type: Boolean, default: false },
+  noteId: { type: Number, default: null },
+  placeholder: { type: String, default: '支持 Markdown 语法，可直接粘贴图片...' }
 })
-
 const emit = defineEmits(['update:modelValue'])
 
+const message = useMessage()
+const userStore = useUserStore() // [新增]
 const localValue = ref(props.modelValue || '')
 const inputRef = ref(null)
-const previewMode = ref(false) // Internal state for toggling preview in editable mode
+const previewMode = ref(false)
+const showPreview = ref(false)
+const previewUrl = ref('')
+const previewType = ref('') // [新增]
 
-const md = new MarkdownIt({
-  html: true,
-  linkify: true,
-  breaks: true
-})
-  .enable(['table'])
-  .use(markdownItKatex)
+// ... markdown-it 配置 ...
+const md = new MarkdownIt({ html: true, linkify: true, breaks: true });
+
+// [关键修改] 覆盖默认的图片渲染规则，为本地图片动态添加 token
+const defaultImageRender = md.renderer.rules.image;
+md.renderer.rules.image = function (tokens, idx, options, env, self) {
+  const token = tokens[idx];
+  const srcIndex = token.attrIndex('src');
+  if (srcIndex >= 0) {
+    let src = token.attrs[srcIndex][1];
+    // 仅处理本地 API 附件
+    if (src && src.startsWith('/api/notes/attachments/')) {
+      const authToken = userStore.token || localStorage.getItem('token') || '';
+      const cleanToken = authToken.replace(/^Bearer\s+/i, '');
+      if (cleanToken && !src.includes('access_token=')) {
+        token.attrs[srcIndex][1] = `${src}?access_token=${cleanToken}`;
+      }
+    }
+  }
+  return defaultImageRender(tokens, idx, options, env, self);
+};
 
 const currentPreviewMode = computed(() => props.readOnly || previewMode.value)
+const rendered = computed(() => localValue.value ? md.render(localValue.value) : '')
 
-watch(
-  () => props.modelValue,
-  (value) => {
-    if (value !== localValue.value) {
-      localValue.value = value || ''
+watch(() => props.modelValue, (val) => localValue.value = val || '')
+watch(localValue, (val) => { if (!props.readOnly) emit('update:modelValue', val) })
+
+const togglePreview = () => previewMode.value = !previewMode.value
+
+// [修改点] 预览点击处理
+const handlePreviewClick = (e) => {
+  if (e.target.tagName === 'IMG' && e.target.src) {
+    // 预览时，rendered HTML 中的 src 已经包含了 token
+    previewUrl.value = e.target.src
+    previewType.value = 'image/png' // [关键] 强制指定为图片类型
+    showPreview.value = true
+  }
+}
+
+// [修改点] 粘贴上传处理
+const handlePaste = async (event) => {
+  const items = event.clipboardData?.items
+  if (!items) return
+
+  const imageItem = Array.from(items).find(item => item.type.startsWith('image'))
+  if (imageItem) {
+    event.preventDefault()
+    if (!props.noteId) {
+      message.warning('请先保存笔记')
+      return
     }
-  },
-  { immediate: true }
-)
 
-watch(localValue, (value) => {
-  if (!props.readOnly) {
-    emit('update:modelValue', value)
-  }
-})
+    const file = imageItem.getAsFile()
+    const msgReactive = message.loading('上传图片中...', { duration: 0 })
 
-const rendered = computed(() => {
-  if (!localValue.value.trim()) {
-    return '<p>暂无内容</p>'
-  }
-  const html = md.render(localValue.value)
-  // Guard against stray dollar signs that might remain before rendered KaTeX output
-  return html.replace(/\$(?=<span class="katex(?:-display)?)/g, '')
-})
-
-const togglePreview = () => {
-  if (!props.readOnly) {
-    previewMode.value = !previewMode.value
-    if (!previewMode.value) {
-      nextTick(() => {
-        const inputEl = inputRef.value?.$el?.querySelector('.n-input__textarea-el')
-        inputEl?.focus()
-      })
+    try {
+      const res = await noteApi.uploadAttachment(props.noteId, file)
+      const data = res.data.data || res.data
+      const attachmentId = data.id || data.Id
+      
+      if (!attachmentId) throw new Error("返回ID无效")
+      
+      // [关键修改] 插入不带 token 的规范 URL
+      const canonicalUrl = `/api/notes/attachments/${attachmentId}`;
+      insertTextAtCursor(`!image`)
+      message.success('上传成功')
+    } catch (e) {
+      console.error(e)
+      message.error('上传失败')
+    } finally {
+      if (msgReactive) msgReactive.destroy()
     }
   }
+}
+
+// ... insertTextAtCursor 保持不变 ...
+const insertTextAtCursor = (text) => {
+  // 使用 inputRef 获取当前组件内的 textarea，避免多实例冲突
+  const textarea = inputRef.value?.$el?.querySelector('textarea')
+  if (!textarea) return 
+  const start = textarea.selectionStart
+  const end = textarea.selectionEnd
+  const original = localValue.value
+  localValue.value = original.substring(0, start) + text + original.substring(end)
+  nextTick(() => {
+    textarea.focus()
+    textarea.setSelectionRange(start + text.length, start + text.length)
+  })
 }
 </script>
 
 <style scoped>
-/* Include KaTeX CSS for formula rendering:
-   https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css */
-.markdown-editor {
-  height: 640px;
-  min-height: 640px;
-  display: flex;
-  flex-direction: column;
-  min-height: 0;
-}
-
-.pane-card {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  border: 1px solid rgba(15, 23, 42, 0.08);
-  border-radius: 14px;
-  background: #fff;
-  box-shadow: 0 6px 16px rgba(15, 23, 42, 0.05);
-  overflow: hidden;
-  height: 100%;
-  min-height: 0;
-}
-
-.pane-card :deep(.n-scrollbar) {
-  height: 100%;
-}
-
-.editor-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 10px 12px;
-  border-bottom: 1px solid rgba(15, 23, 42, 0.06);
-  background: #f8fafc;
-}
-
-.editor-title {
-  font-weight: 600;
-  color: #0f172a;
-}
-
-.editor-body {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  min-height: 0;
-  padding: 12px;
-}
-
-.editor-body :deep(.n-input) {
-  flex: 1;
-  height: 100%;
-  display: flex;
-  flex-direction: column;
-  min-height: 0;
-}
-
-.editor-body :deep(.n-input__textarea) {
-  height: 100%;
-  flex: 1;
-  min-height: 0;
-  overflow: auto;
-}
-
-.editor-body :deep(.n-input__textarea-el) {
-  height: 100%;
-  min-height: 0;
-  flex: 1;
-  resize: none;
-  overflow: auto;
-}
-
-.preview {
-  padding: 12px 16px;
-  background: linear-gradient(180deg, #f8fafc 0%, #f1f5f9 100%);
-  height: 100%;
-}
-
-.preview-body {
-  flex: 1;
-  min-height: 0;
-  display: flex;
-}
-
-.preview-content {
-  color: #0f172a;
-  font-size: 13px;
-  line-height: 1.6;
-}
-
-.preview-content h1,
-.preview-content h2,
-.preview-content h3 {
-  margin: 12px 0 6px;
-}
-
-.preview-content ul {
-  padding-left: 20px;
-  margin: 8px 0;
-}
-
-.preview-content code {
-  background: rgba(15, 23, 42, 0.08);
-  padding: 2px 6px;
-  border-radius: 6px;
-  font-family: 'Fira Code', 'JetBrains Mono', monospace;
-}
-
-.preview-content table {
-  width: 100%;
-  border-collapse: collapse;
-  margin: 12px 0;
-  font-size: 13px;
-}
-
-.preview-content th,
-.preview-content td {
-  border: 1px solid rgba(15, 23, 42, 0.12);
-  padding: 8px 10px;
-  text-align: left;
-}
-
-.preview-content th {
-  background: #f8fafc;
-  font-weight: 600;
-}
+/* 保持优化后的样式 */
+.markdown-editor { height: 100%; display: flex; flex-direction: column; background: #fff; overflow: hidden; }
+.editor-header { padding: 8px 0; border-bottom: 1px solid #f1f5f9; display: flex; justify-content: space-between; align-items: center; background: #fff; }
+.editor-title { font-weight: 600; color: #333; font-size: 14px; }
+.editor-body, .preview-body { flex: 1; overflow: hidden; display: flex; }
+.md-input { flex: 1; height: 100%; }
+.md-input :deep(textarea) { height: 100% !important; resize: none; padding: 16px 0; border: none; outline: none; box-shadow: none; } 
+.md-input :deep(.n-input__border), .md-input :deep(.n-input__state-border) { display: none !important; }
+.preview { width: 100%; padding: 16px 0; }
+.preview-content :deep(img) { max-width: 100%; border-radius: 4px; cursor: zoom-in; }
 </style>

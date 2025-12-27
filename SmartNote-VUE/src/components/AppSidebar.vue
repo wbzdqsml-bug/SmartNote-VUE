@@ -22,9 +22,13 @@
 
     <div class="footer">
       <div class="user">
-        <n-avatar size="large" class="avatar" :src="realAvatarUrl">
-          {{ displayInitial }}
-        </n-avatar>
+        <n-avatar 
+          size="large" 
+          class="avatar" 
+          round
+          :src="avatarUrl" 
+          fallback-src="https://07akioni.oss-cn-beijing.aliyuncs.com/07akioni.jpeg"
+        />
         <div class="meta">
           <span class="name">{{ displayName }}</span>
           <n-button text size="tiny" type="primary" @click="$emit('open-profile')">
@@ -40,9 +44,9 @@
 </template>
 
 <script setup>
-import { computed, ref, watch } from 'vue'
+import { computed } from 'vue'
 import { NLayoutSider, NButton, NMenu, NAvatar } from 'naive-ui'
-import { fetchAuthImage } from '@/api/resource'
+import { resolveStaticUrl } from '@/api/resource'
 
 const emit = defineEmits(['create-note', 'update:active', 'open-profile', 'logout'])
 
@@ -70,30 +74,16 @@ const menuOptions = computed(() => [
   { label: '个人资料', key: 'profile' }
 ])
 
-const displayInitial = computed(() => {
-  const name = props.profile?.nickname || props.profile?.username || 'U'
-  return name.slice(0, 1).toUpperCase()
-})
-
 const displayName = computed(() => props.profile?.nickname || props.profile?.username || '未登录')
 
-// --- 修改开始：处理头像加载 ---
-const realAvatarUrl = ref('')
-
-// 监听 profile 变化，异步获取带 Token 的图片 Blob URL
-watch(
-  () => props.profile?.avatar ?? props.profile?.avatarUrl,
-  async (newUrl) => {
-    if (newUrl) {
-      // 使用 api/resource.js 中定义的 fetchAuthImage 获取图片
-      realAvatarUrl.value = await fetchAuthImage(newUrl)
-    } else {
-      realAvatarUrl.value = ''
-    }
-  },
-  { immediate: true }
-)
-// --- 修改结束 ---
+// 修改部分：如果 profile 中没有头像，则使用默认头像
+const avatarUrl = computed(() => {
+  const url = props.profile?.avatar ?? props.profile?.avatarUrl
+  if (!url) {
+    return 'https://07akioni.oss-cn-beijing.aliyuncs.com/07akioni.jpeg' // 默认头像
+  }
+  return resolveStaticUrl(url)
+})
 
 const handleSelect = (key) => {
   emit('update:active', key)
@@ -188,9 +178,12 @@ const handleSelect = (key) => {
 }
 
 .avatar {
-  background: #e5e7eb;
-  color: #111827;
-  font-weight: 600;
+  /* 移除原有的背景色，因为现在主要显示图片 */
+  background: transparent; 
+  /* 保持 flex 布局以防万一 */
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .meta {
