@@ -22,7 +22,7 @@
 
     <div class="footer">
       <div class="user">
-        <n-avatar size="large" class="avatar" :src="avatarUrl">
+        <n-avatar size="large" class="avatar" :src="realAvatarUrl">
           {{ displayInitial }}
         </n-avatar>
         <div class="meta">
@@ -40,9 +40,9 @@
 </template>
 
 <script setup>
-import { computed } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { NLayoutSider, NButton, NMenu, NAvatar } from 'naive-ui'
-import { resolveStaticUrl } from '@/api/resource'
+import { fetchAuthImage } from '@/api/resource'
 
 const emit = defineEmits(['create-note', 'update:active', 'open-profile', 'logout'])
 
@@ -76,7 +76,24 @@ const displayInitial = computed(() => {
 })
 
 const displayName = computed(() => props.profile?.nickname || props.profile?.username || '未登录')
-const avatarUrl = computed(() => resolveStaticUrl(props.profile?.avatar ?? props.profile?.avatarUrl))
+
+// --- 修改开始：处理头像加载 ---
+const realAvatarUrl = ref('')
+
+// 监听 profile 变化，异步获取带 Token 的图片 Blob URL
+watch(
+  () => props.profile?.avatar ?? props.profile?.avatarUrl,
+  async (newUrl) => {
+    if (newUrl) {
+      // 使用 api/resource.js 中定义的 fetchAuthImage 获取图片
+      realAvatarUrl.value = await fetchAuthImage(newUrl)
+    } else {
+      realAvatarUrl.value = ''
+    }
+  },
+  { immediate: true }
+)
+// --- 修改结束 ---
 
 const handleSelect = (key) => {
   emit('update:active', key)

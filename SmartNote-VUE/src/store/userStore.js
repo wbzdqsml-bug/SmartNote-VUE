@@ -3,7 +3,7 @@ import userApi from '@/api/user'
 import request from '@/api/axios'
 
 
-const PROFILE_FETCH_ENABLED = import.meta.env.VITE_ENABLE_PROFILE === 'true'
+const PROFILE_FETCH_ENABLED = true
 
 const readProfileFromStorage = () => {
   try {

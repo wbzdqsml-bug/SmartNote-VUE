@@ -76,25 +76,29 @@ export const useChatStore = defineStore('chat', () => {
         accessTokenFactory: () => getStoredToken()
       })
       .withAutomaticReconnect()
-      .configureLogging(LogLevel.Information)
+      .configureLogging(LogLevel.Trace)
       .build()
 
     // 监听连接状态变化
     connection.value.onclose((error) => {
       isConnected.value = false
+      console.error('SignalR Connection Closed:', error)
       handleSignalRError(error)
     })
     connection.value.onreconnecting((error) => {
       isConnected.value = false
+      console.warn('SignalR Reconnecting:', error)
       handleSignalRError(error)
     })
-    connection.value.onreconnected(() => { 
+    connection.value.onreconnected((reconnectedId) => { 
       isConnected.value = true 
+      console.log(`SignalR Reconnected with new id ${reconnectedId}`)
       // 待重连后刷新状态，例如重新拉取未读
     })
 
     // 监听私聊消息
     connection.value.on('ReceivePrivateMessage', (senderId, content, sentAt) => {
+      console.log('Received private message:', { senderId, content, sentAt })
       handleIncomingMessage({ 
         type: 'private', 
         senderId, 
@@ -106,6 +110,7 @@ export const useChatStore = defineStore('chat', () => {
 
     // 监听工作区消息
     connection.value.on('ReceiveWorkspaceMessage', (workspaceId, senderId, content, sentAt) => {
+      console.log('Received workspace message:', { workspaceId, senderId, content, sentAt })
       handleIncomingMessage({ 
         type: 'workspace', 
         workspaceId, 
@@ -119,9 +124,9 @@ export const useChatStore = defineStore('chat', () => {
     try {
       await connection.value.start()
       isConnected.value = true
-      console.log('SignalR Connected')
+      console.log('SignalR Connected with connectionId:', connection.value.connectionId)
     } catch (err) {
-      console.error('SignalR Connection Error:', err)
+      console.error('SignalR Connection Failed during start():', err)
       handleSignalRError(err)
     }
   }
