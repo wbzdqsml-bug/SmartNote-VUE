@@ -38,7 +38,7 @@ import MathExtension from '@aarkue/tiptap-math-extension'
 import { NButton, useMessage } from 'naive-ui'
 import noteApi from '@/api/note'
 import FilePreviewModal from '@/components/FilePreviewModal.vue'
-import { useUserStore } from '@/store/userStore'
+import { addTokenToAttachmentSrc, stripTokenFromAttachmentSrc } from '@/utils/attachmentToken'
 
 const props = defineProps({
   modelValue: { type: String, default: '' },
@@ -49,50 +49,10 @@ const props = defineProps({
 const emit = defineEmits(['update:modelValue'])
 
 const message = useMessage()
-const userStore = useUserStore()
 const fileInput = ref(null)
 const showPreview = ref(false)
 const previewUrl = ref('')
 const previewType = ref('')
-
-const getAccessToken = () => {
-  const token = userStore.token || localStorage.getItem('token') || ''
-  return token.replace(/^Bearer\s+/i, '')
-}
-
-const addTokenToAttachmentSrc = (html) => {
-  const token = getAccessToken()
-  if (!token || !html) return html || ''
-
-  const parser = new DOMParser()
-  const doc = parser.parseFromString(html, 'text/html')
-  const images = doc.querySelectorAll('img[src^="/api/notes/attachments/"]')
-  images.forEach((img) => {
-    const src = img.getAttribute('src') || ''
-    if (src.includes('access_token=')) return
-    const separator = src.includes('?') ? '&' : '?'
-    img.setAttribute('src', `${src}${separator}access_token=${token}`)
-  })
-  return doc.body.innerHTML
-}
-
-const stripTokenFromAttachmentSrc = (html) => {
-  if (!html) return ''
-  const parser = new DOMParser()
-  const doc = parser.parseFromString(html, 'text/html')
-  const images = doc.querySelectorAll('img[src^="/api/notes/attachments/"]')
-  images.forEach((img) => {
-    const src = img.getAttribute('src') || ''
-    const cleaned = src.replace(/([?&])access_token=[^&#]+(&)?/, (match, p1, p2) => {
-      if (p1 === '?' && p2) return '?'
-      if (p1 === '?' && !p2) return ''
-      if (p1 === '&') return ''
-      return match
-    }).replace(/[?&]$/, '')
-    img.setAttribute('src', cleaned)
-  })
-  return doc.body.innerHTML
-}
 
 const uploadImage = async (file) => {
   if (!props.noteId) {

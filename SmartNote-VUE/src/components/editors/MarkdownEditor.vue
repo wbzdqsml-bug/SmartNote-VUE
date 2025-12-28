@@ -37,7 +37,7 @@ import { NInput, NScrollbar, NButton, useMessage } from 'naive-ui'
 import MarkdownIt from 'markdown-it'
 import noteApi from '@/api/note'
 import FilePreviewModal from '@/components/FilePreviewModal.vue'
-import { useUserStore } from '@/store/userStore'
+import { addTokenToAttachmentSrc } from '@/utils/attachmentToken'
 
 const props = defineProps({
   modelValue: { type: String, default: '' },
@@ -48,7 +48,6 @@ const props = defineProps({
 const emit = defineEmits(['update:modelValue'])
 
 const message = useMessage()
-const userStore = useUserStore()
 const localValue = ref(props.modelValue || '')
 const inputRef = ref(null)
 const previewMode = ref(false)
@@ -58,25 +57,10 @@ const previewType = ref('')
 
 const md = new MarkdownIt({ html: true, linkify: true, breaks: true })
 
-const defaultImageRender = md.renderer.rules.image
-md.renderer.rules.image = function (tokens, idx, options, env, self) {
-  const token = tokens[idx]
-  const srcIndex = token.attrIndex('src')
-  if (srcIndex >= 0) {
-    const src = token.attrs[srcIndex][1]
-    if (src && src.startsWith('/api/notes/attachments/')) {
-      const authToken = userStore.token || localStorage.getItem('token') || ''
-      const cleanToken = authToken.replace(/^Bearer\s+/i, '')
-      if (cleanToken && !src.includes('access_token=')) {
-        token.attrs[srcIndex][1] = `${src}?access_token=${cleanToken}`
-      }
-    }
-  }
-  return defaultImageRender(tokens, idx, options, env, self)
-}
-
 const currentPreviewMode = computed(() => props.readOnly || previewMode.value)
-const rendered = computed(() => (localValue.value ? md.render(localValue.value) : ''))
+const rendered = computed(() =>
+  localValue.value ? addTokenToAttachmentSrc(md.render(localValue.value)) : ''
+)
 
 watch(
   () => props.modelValue,
