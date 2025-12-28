@@ -226,9 +226,11 @@ const handleSaveAndClose = () => {
 <style scoped>
 .note-editor-wrapper {
   height: 100%;
+  display: flex;
+  flex-direction: column;
 }
 .note-editor {
-  height: 100%;
+  height: clamp(620px, 78vh, 880px);
   display: flex;
   flex-direction: column;
   border-radius: 12px;
@@ -236,6 +238,7 @@ const handleSaveAndClose = () => {
   background: #fff;
   padding: 16px 18px 14px;
   box-sizing: border-box;
+  overflow: hidden;
 }
 
 .title-row {
@@ -262,11 +265,13 @@ const handleSaveAndClose = () => {
   flex: 1;
   display: flex;
   min-height: 0;
+  max-height: calc(100% - 64px);
 }
 
 .dynamic-editor {
   flex: 1;
   overflow: auto;
+  padding: 4px 2px 0;
 }
 
 /* --- Overlay Styles --- */
