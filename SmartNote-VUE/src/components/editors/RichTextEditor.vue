@@ -200,20 +200,25 @@ onBeforeUnmount(() => {
 
 .editable-wrapper {
   flex: 1;
-  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
   padding: 12px 14px;
   line-height: 1.7;
   min-height: 0;
-  height: 100%;
   box-sizing: border-box;
+  max-height: 100%;
 }
 
 :deep(.ProseMirror) {
-  min-height: 100%;
+  flex: 1;
+  min-height: 0;
   height: 100%;
   outline: none;
   font-size: 16px;
   color: #333;
+  overflow-y: auto;
+  padding: 4px 0;
 }
 
 :deep(.ProseMirror img) {
