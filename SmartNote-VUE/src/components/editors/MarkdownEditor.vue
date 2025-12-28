@@ -15,7 +15,7 @@
         v-model:value="localValue"
         type="textarea"
         :placeholder="placeholder"
-        :autosize="false"
+        :autosize="{ minRows: 12, maxRows: 30 }"
         :resizable="false"
         class="md-input"
         @paste="handlePaste"
