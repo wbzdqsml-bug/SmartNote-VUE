@@ -32,7 +32,7 @@
           </div>
         </div>
 
-        <div class="editor-row" :key="localNote.id" v-if="editorReady">
+        <div class="editor-row" :key="`${localNote.id}-${localNote.type}`" v-if="editorReady">
           <component
             :is="currentEditor"
             v-model="localNote.content"
@@ -78,7 +78,7 @@
             <n-button size="small" type="primary" :loading="saving" @click="handleSaveAndClose">保存并关闭</n-button>
           </div>
         </div>
-        <div class="overlay-editor-content" :key="localNote.id" v-if="editorReady">
+        <div class="overlay-editor-content" :key="`${localNote.id}-${localNote.type}`" v-if="editorReady">
           <component 
             :is="currentEditor" 
             v-model="localNote.content" 
