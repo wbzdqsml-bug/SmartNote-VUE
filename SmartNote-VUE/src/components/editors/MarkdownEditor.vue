@@ -16,6 +16,7 @@
         type="textarea"
         :placeholder="placeholder"
         :autosize="false"
+        :resizable="false"
         class="md-input"
         @paste="handlePaste"
       />
