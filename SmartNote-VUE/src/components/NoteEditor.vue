@@ -1,6 +1,6 @@
 ﻿﻿<template>
-  <div class="note-editor-wrapper" v-bind="$attrs">
-    <n-card class="note-editor" :bordered="false">
+  <div ref="editorShell" class="note-editor-wrapper" v-bind="$attrs">
+    <n-card ref="cardRef" class="note-editor" :bordered="false">
       <template v-if="note">
         <div class="title-row">
           <n-input
@@ -32,7 +32,7 @@
           </div>
         </div>
 
-        <div class="editor-row" :key="localNote.id" v-if="editorReady">
+        <div class="editor-row" :key="`${localNote.id}-${localNote.type}`" v-if="editorReady">
           <component
             :is="currentEditor"
             v-model="localNote.content"
@@ -61,7 +61,7 @@
     </n-drawer>
 
     <div v-if="showExpanded" class="editor-overlay" @click.self="showExpanded = false">
-      <div class="overlay-card">
+      <div ref="overlayCardRef" class="overlay-card">
         <div class="overlay-header">
           <div class="overlay-title">
             <n-input
@@ -78,7 +78,7 @@
             <n-button size="small" type="primary" :loading="saving" @click="handleSaveAndClose">保存并关闭</n-button>
           </div>
         </div>
-        <div class="overlay-editor-content" :key="localNote.id" v-if="editorReady">
+        <div class="overlay-editor-content" :key="`${localNote.id}-${localNote.type}`" v-if="editorReady">
           <component 
             :is="currentEditor" 
             v-model="localNote.content" 
@@ -93,7 +93,7 @@
 </template>
 
 <script setup>
-import { computed, reactive, ref, watch, nextTick } from 'vue'
+import { computed, reactive, ref, watch } from 'vue'
 import { NCard, NInput, NButton, NTag, NEmpty, NIcon, NPopover, NDrawer } from 'naive-ui'
 import { noteTypeMap, defaultContentByType } from '@/constants/noteTypes'
 import MarkdownEditor from '@/components/editors/MarkdownEditor.vue'
@@ -133,9 +133,28 @@ const localNote = reactive({
 const showExpanded = ref(false)
 const showAIPanel = ref(false)
 const editorReady = ref(true)
+const cardRef = ref(null)
+const overlayCardRef = ref(null)
+const editorShell = ref(null)
 
 const currentEditor = computed(() => editorMap[localNote.type] || MarkdownEditor)
 const currentTypeLabel = computed(() => noteTypeMap[localNote.type] || '笔记')
+
+const blurActiveWithinEditor = () => {
+  if (typeof document === 'undefined') return
+  const activeElement = document.activeElement
+  if (!activeElement) return
+
+  const containers = [
+    cardRef.value?.$el ?? cardRef.value,
+    overlayCardRef.value,
+    editorShell.value
+  ].filter(Boolean)
+
+  if (containers.some((el) => el.contains(activeElement))) {
+    activeElement.blur()
+  }
+}
 
 watch(
   () => props.note,
@@ -150,6 +169,7 @@ watch(
     }
 
     if (localNote.id !== value.id) {
+      blurActiveWithinEditor()
       editorReady.value = false
       setTimeout(() => {
         const noteType = typeof value.type === 'number' ? value.type : Number(value.type ?? 0)
@@ -166,6 +186,14 @@ watch(
   },
   { immediate: true }
 )
+
+watch(showExpanded, (visible) => {
+  if (visible) blurActiveWithinEditor()
+})
+
+watch(showAIPanel, (visible) => {
+  if (visible) blurActiveWithinEditor()
+})
 
 const onFieldChange = () => {
   emit('change', {
@@ -198,9 +226,11 @@ const handleSaveAndClose = () => {
 <style scoped>
 .note-editor-wrapper {
   height: 100%;
+  display: flex;
+  flex-direction: column;
 }
 .note-editor {
-  height: 100%;
+  height: clamp(620px, 78vh, 880px);
   display: flex;
   flex-direction: column;
   border-radius: 12px;
@@ -208,6 +238,7 @@ const handleSaveAndClose = () => {
   background: #fff;
   padding: 16px 18px 14px;
   box-sizing: border-box;
+  overflow: hidden;
 }
 
 .title-row {
@@ -234,11 +265,13 @@ const handleSaveAndClose = () => {
   flex: 1;
   display: flex;
   min-height: 0;
+  max-height: calc(100% - 64px);
 }
 
 .dynamic-editor {
   flex: 1;
   overflow: auto;
+  padding: 4px 2px 0;
 }
 
 /* --- Overlay Styles --- */
