@@ -1,104 +1,83 @@
 <template>
   <div class="rich-text-editor" :class="{ 'is-read-only': readOnly }">
     <div v-if="editor && !readOnly" class="toolbar">
-       <input type="file" ref="fileInput" style="display: none" accept="image/*" @change="handleFileSelect" />
+      <n-button size="small" quaternary @click="triggerImageUpload">
+        上传图片
+      </n-button>
+      <input
+        ref="fileInput"
+        type="file"
+        accept="image/*"
+        class="file-input"
+        @change="handleFileSelect"
+      />
     </div>
 
     <div class="editable-wrapper">
-      <editor-content :editor="editor" />
+      <editor-content v-if="editor" :editor="editor" />
     </div>
 
-    <FilePreviewModal 
-      v-model:show="showPreview" 
-      :url="previewUrl" 
-      :type="previewType" 
+    <FilePreviewModal
+      v-model:show="showPreview"
+      :url="previewUrl"
+      :type="previewType"
     />
   </div>
 </template>
 
 <script setup>
-// ... import 保持不变
-import { useUserStore } from '@/store/userStore' // [新增] 引入 userStore
-// ...
+import { onBeforeUnmount, ref, watch } from 'vue'
+import { useEditor, EditorContent } from '@tiptap/vue-3'
+import StarterKit from '@tiptap/starter-kit'
+import { TextStyle } from '@tiptap/extension-text-style'
+import Color from '@tiptap/extension-color'
+import Highlight from '@tiptap/extension-highlight'
+import Image from '@tiptap/extension-image'
+import Placeholder from '@tiptap/extension-placeholder'
+import MathExtension from '@aarkue/tiptap-math-extension'
+import { NButton, useMessage } from 'naive-ui'
+import noteApi from '@/api/note'
+import FilePreviewModal from '@/components/FilePreviewModal.vue'
 
-// ... props, emit 保持不变 ...
+const props = defineProps({
+  modelValue: { type: String, default: '' },
+  readOnly: { type: Boolean, default: false },
+  noteId: { type: Number, default: null }
+})
 
-const message = useMessage();
-const userStore = useUserStore(); // [新增]
-const fileInput = ref(null);
-const showPreview = ref(false);
-const previewUrl = ref('');
-const previewType = ref(''); // [新增] 预览类型状态
+const emit = defineEmits(['update:modelValue'])
 
-// [新增] 为 API URL 添加认证 token
-const addTokenToUrl = (url) => {
-  if (url && url.startsWith('/api/') && !url.includes('access_token=')) {
-    const token = userStore.token || localStorage.getItem('token') || '';
-    const cleanToken = token.replace(/^Bearer\s+/i, '');
-    if (cleanToken) {
-      return `${url}?access_token=${cleanToken}`;
-    }
-  }
-  return url;
-};
+const message = useMessage()
+const fileInput = ref(null)
+const showPreview = ref(false)
+const previewUrl = ref('')
+const previewType = ref('')
 
-// [新增] 从 HTML 内容中移除所有图片的 token
-const stripTokenFromHtml = (html) => {
-  if (!html) return '';
-  const parser = new DOMParser();
-  const doc = parser.parseFromString(html, 'text/html');
-  doc.querySelectorAll('img').forEach(img => {
-    const src = img.getAttribute('src');
-    if (src && src.includes('?access_token=')) {
-      img.setAttribute('src', src.split('?')[0]);
-    }
-  });
-  return doc.body.innerHTML;
-};
-
-// [新增] 为 HTML 内容中的所有图片添加 token
-const addTokenToHtml = (html) => {
-  if (!html) return '';
-  const parser = new DOMParser();
-  const doc = parser.parseFromString(html, 'text/html');
-  doc.querySelectorAll('img').forEach(img => {
-    img.setAttribute('src', addTokenToUrl(img.getAttribute('src')));
-  });
-  return doc.body.innerHTML;
-};
-
-// [核心修复] 上传逻辑
 const uploadImage = async (file) => {
   if (!props.noteId) {
-    message.warning('请先保存笔记后再上传图片');
-    return null;
+    message.warning('请先保存笔记后再上传图片')
+    return null
   }
-  
-  const msgReactive = message.loading('上传图片中...', { duration: 0 });
-  
+
+  const loading = message.loading('上传图片中...', { duration: 0 })
   try {
-    const res = await noteApi.uploadAttachment(props.noteId, file);
-    // 兼容后端返回结构
-    const data = res.data.data || res.data; 
-    
-    // [关键修改] 返回不带 token 的规范 URL
-    const attachmentId = data.id || data.Id;
-    const canonicalUrl = `/api/notes/attachments/${attachmentId}`;
+    const res = await noteApi.uploadAttachment(props.noteId, file)
+    const data = res.data?.data || res.data
+    const attachmentId = data?.id || data?.Id
 
-    message.success('上传成功');
-    return canonicalUrl;
-
-  } catch (e) {
-    console.error(e);
-    message.error('上传失败: ' + (e.message || '未知错误'));
-    return null;
+    if (!attachmentId) throw new Error('未获取到附件 ID')
+    message.success('上传成功')
+    return `/api/notes/attachments/${attachmentId}`
+  } catch (error) {
+    console.error('[RichTextEditor] uploadImage error:', error)
+    message.error(error?.message || '上传失败')
+    return null
   } finally {
-    if (msgReactive) msgReactive.destroy();
+    loading?.destroy?.()
   }
-};
+}
 
 const editor = useEditor({
-  // ... extensions 保持不变 ...
   extensions: [
     StarterKit,
     TextStyle,
@@ -106,92 +85,131 @@ const editor = useEditor({
     Highlight.configure({ multicolor: true }),
     MathExtension.configure({ evaluation: false }),
     Image.configure({ inline: true, allowBase64: true }),
-    Placeholder.configure({ placeholder: '开始记录... (支持粘贴图片)' }),
+    Placeholder.configure({ placeholder: '开始记录... (支持粘贴图片)' })
   ],
   editable: !props.readOnly,
-  content: addTokenToHtml(props.modelValue), // [修改] 加载时添加 token
+  content: props.modelValue || '',
   editorProps: {
-    // [修改点] 点击图片预览逻辑
-    handleClickOn: (view, pos, node, nodePos, event, direct) => {
+    handleClickOn(view, pos, node, nodePos, event, direct) {
       if (node.type.name === 'image') {
-        previewUrl.value = node.attrs.src;
-        // [关键] 强制指定类型为图片，解决 URL 无后缀导致预览失败的问题
-        previewType.value = 'image/png'; 
-        showPreview.value = true;
-        return true; 
+        previewUrl.value = node.attrs.src
+        previewType.value = 'image/png'
+        showPreview.value = true
+        return true
       }
-      return false;
+      return false
     },
-    // ... handlePaste 保持不变 ...
-    handlePaste: (view, event) => {
-      const items = event.clipboardData?.items;
-      if (!items) return false;
-      const imageItem = Array.from(items).find(item => item.type.startsWith('image'));
+    handlePaste(view, event) {
+      const items = event.clipboardData?.items
+      if (!items) return false
+
+      const imageItem = Array.from(items).find((item) => item.type.startsWith('image'))
       if (imageItem) {
-        event.preventDefault();
-        const file = imageItem.getAsFile();
-        uploadImage(file).then(canonicalUrl => {
-          if (canonicalUrl) {
-            const displayUrl = addTokenToUrl(canonicalUrl); // 为本次显示添加 token
-            const { schema } = view.state;
-            const node = schema.nodes.image.create({ src: displayUrl });
-            const transaction = view.state.tr.replaceSelectionWith(node);
-            view.dispatch(transaction);
+        event.preventDefault()
+        const file = imageItem.getAsFile()
+        uploadImage(file).then((url) => {
+          if (url && editor.value) {
+            editor.value.chain().focus().setImage({ src: url }).run()
           }
-        });
-        return true;
+        })
+        return true
       }
-      return false;
+      return false
     }
   },
   onUpdate: ({ editor }) => {
-    // [修改] 保存时移除 token
     if (!props.readOnly && editor && !editor.isDestroyed) {
-      emit('update:modelValue', stripTokenFromHtml(editor.getHTML()));
+      emit('update:modelValue', editor.getHTML())
     }
-  },
-});
+  }
+})
 
-// ... 其他逻辑保持不变 ...
-const triggerImageUpload = () => fileInput.value?.click();
-const handleFileSelect = async (e) => {
-  const file = e.target.files[0];
-  if (!file) return;
-  const canonicalUrl = await uploadImage(file);
-  if (canonicalUrl && editor.value) {
-    const displayUrl = addTokenToUrl(canonicalUrl); // 为本次显示添加 token
-    editor.value.chain().focus().setImage({ src: displayUrl }).run();
+const triggerImageUpload = () => fileInput.value?.click()
+
+const handleFileSelect = async (event) => {
+  const file = event.target.files?.[0]
+  if (!file) return
+  const url = await uploadImage(file)
+  if (url && editor.value) {
+    editor.value.chain().focus().setImage({ src: url }).run()
   }
-  e.target.value = '';
-};
-// ... watch, onBeforeUnmount 等保持不变 ...
-watch(() => props.modelValue, (value) => {
-  // [关键修复] 增加 isDestroyed 判断，防止在即将销毁的实例上执行操作
-  if (editor.value && !editor.value.isDestroyed && !editor.value.isFocused) {
-    // [修改] 比较前先移除当前编辑器内容里的 token
-    const currentContent = stripTokenFromHtml(editor.value.getHTML());
-    if (currentContent !== value) {
-      // 加载新内容时要添加 token
-      editor.value.commands.setContent(addTokenToHtml(value) || '', false);
+  event.target.value = ''
+}
+
+watch(
+  () => props.modelValue,
+  (value) => {
+    if (!editor.value || editor.value.isDestroyed) return
+    const current = editor.value.getHTML()
+    if (!editor.value.isFocused && value !== current) {
+      editor.value.commands.setContent(value || '', false)
     }
   }
-});
-watch(() => props.readOnly, (readOnly) => {
-  editor.value?.setEditable(!readOnly);
-});
+)
+
+watch(
+  () => props.readOnly,
+  (readOnly) => {
+    editor.value?.setEditable(!readOnly)
+  }
+)
+
 onBeforeUnmount(() => {
   if (editor.value && !editor.value.isDestroyed) {
-    editor.value.destroy();
+    editor.value.destroy()
   }
-});
+})
 </script>
 
 <style scoped>
-/* 保持您现有的无边框样式 */
-.rich-text-editor { display: flex; flex-direction: column; height: 100%; min-height: 0; overflow: hidden; background: #fff; }
-.toolbar { padding: 8px 0; border-bottom: 1px solid #f1f5f9; background: #fff; flex-shrink: 0; }
-.editable-wrapper { flex: 1; overflow-y: auto; padding: 16px 0; line-height: 1.7; }
-:deep(.ProseMirror) { min-height: 100%; outline: none; font-size: 16px; color: #333; }
-:deep(img) { max-width: 100%; border-radius: 4px; cursor: pointer; transition: opacity 0.2s; }
-:deep(img:hover) { opacity: 0.9; box-shadow: 0 0 0 2px #2080f0; }
+.rich-text-editor {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+  overflow: hidden;
+  background: #fff;
+  border-radius: 8px;
+  border: 1px solid #eef2f8;
+}
+
+.toolbar {
+  padding: 8px 12px;
+  border-bottom: 1px solid #f1f5f9;
+  background: #fff;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.file-input {
+  display: none;
+}
+
+.editable-wrapper {
+  flex: 1;
+  overflow-y: auto;
+  padding: 12px 14px;
+  line-height: 1.7;
+}
+
+:deep(.ProseMirror) {
+  min-height: 100%;
+  outline: none;
+  font-size: 16px;
+  color: #333;
+}
+
+:deep(.ProseMirror img) {
+  max-width: 100%;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: opacity 0.2s;
+}
+
+:deep(.ProseMirror img:hover) {
+  opacity: 0.92;
+  box-shadow: 0 0 0 2px #2080f0;
+}
 </style>
