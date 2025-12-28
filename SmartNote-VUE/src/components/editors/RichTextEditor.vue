@@ -38,6 +38,7 @@ import MathExtension from '@aarkue/tiptap-math-extension'
 import { NButton, useMessage } from 'naive-ui'
 import noteApi from '@/api/note'
 import FilePreviewModal from '@/components/FilePreviewModal.vue'
+import { useUserStore } from '@/store/userStore'
 
 const props = defineProps({
   modelValue: { type: String, default: '' },
@@ -48,10 +49,50 @@ const props = defineProps({
 const emit = defineEmits(['update:modelValue'])
 
 const message = useMessage()
+const userStore = useUserStore()
 const fileInput = ref(null)
 const showPreview = ref(false)
 const previewUrl = ref('')
 const previewType = ref('')
+
+const getAccessToken = () => {
+  const token = userStore.token || localStorage.getItem('token') || ''
+  return token.replace(/^Bearer\s+/i, '')
+}
+
+const addTokenToAttachmentSrc = (html) => {
+  const token = getAccessToken()
+  if (!token || !html) return html || ''
+
+  const parser = new DOMParser()
+  const doc = parser.parseFromString(html, 'text/html')
+  const images = doc.querySelectorAll('img[src^="/api/notes/attachments/"]')
+  images.forEach((img) => {
+    const src = img.getAttribute('src') || ''
+    if (src.includes('access_token=')) return
+    const separator = src.includes('?') ? '&' : '?'
+    img.setAttribute('src', `${src}${separator}access_token=${token}`)
+  })
+  return doc.body.innerHTML
+}
+
+const stripTokenFromAttachmentSrc = (html) => {
+  if (!html) return ''
+  const parser = new DOMParser()
+  const doc = parser.parseFromString(html, 'text/html')
+  const images = doc.querySelectorAll('img[src^="/api/notes/attachments/"]')
+  images.forEach((img) => {
+    const src = img.getAttribute('src') || ''
+    const cleaned = src.replace(/([?&])access_token=[^&#]+(&)?/, (match, p1, p2) => {
+      if (p1 === '?' && p2) return '?'
+      if (p1 === '?' && !p2) return ''
+      if (p1 === '&') return ''
+      return match
+    }).replace(/[?&]$/, '')
+    img.setAttribute('src', cleaned)
+  })
+  return doc.body.innerHTML
+}
 
 const uploadImage = async (file) => {
   if (!props.noteId) {
@@ -88,7 +129,7 @@ const editor = useEditor({
     Placeholder.configure({ placeholder: '开始记录... (支持粘贴图片)' })
   ],
   editable: !props.readOnly,
-  content: props.modelValue || '',
+  content: addTokenToAttachmentSrc(props.modelValue || ''),
   editorProps: {
     handleClickOn(view, pos, node, nodePos, event, direct) {
       if (node.type.name === 'image') {
@@ -109,7 +150,14 @@ const editor = useEditor({
         const file = imageItem.getAsFile()
         uploadImage(file).then((url) => {
           if (url && editor.value) {
-            editor.value.chain().focus().setImage({ src: url }).run()
+            const withToken = addTokenToAttachmentSrc(`<img src="${url}" />`)
+            const parser = new DOMParser()
+            const img = parser.parseFromString(withToken, 'text/html').querySelector('img')
+            editor.value
+              .chain()
+              .focus()
+              .setImage({ src: img?.getAttribute('src') || url })
+              .run()
           }
         })
         return true
@@ -119,7 +167,7 @@ const editor = useEditor({
   },
   onUpdate: ({ editor }) => {
     if (!props.readOnly && editor && !editor.isDestroyed) {
-      emit('update:modelValue', editor.getHTML())
+      emit('update:modelValue', stripTokenFromAttachmentSrc(editor.getHTML()))
     }
   }
 })
@@ -131,7 +179,10 @@ const handleFileSelect = async (event) => {
   if (!file) return
   const url = await uploadImage(file)
   if (url && editor.value) {
-    editor.value.chain().focus().setImage({ src: url }).run()
+    const withToken = addTokenToAttachmentSrc(`<img src="${url}" />`)
+    const parser = new DOMParser()
+    const img = parser.parseFromString(withToken, 'text/html').querySelector('img')
+    editor.value.chain().focus().setImage({ src: img?.getAttribute('src') || url }).run()
   }
   event.target.value = ''
 }
@@ -141,8 +192,8 @@ watch(
   (value) => {
     if (!editor.value || editor.value.isDestroyed) return
     const current = editor.value.getHTML()
-    if (!editor.value.isFocused && value !== current) {
-      editor.value.commands.setContent(value || '', false)
+    if (!editor.value.isFocused && value !== stripTokenFromAttachmentSrc(current)) {
+      editor.value.commands.setContent(addTokenToAttachmentSrc(value || ''), false)
     }
   }
 )
