@@ -203,6 +203,7 @@ onBeforeUnmount(() => {
   overflow-y: auto;
   padding: 12px 14px;
   line-height: 1.7;
+  min-height: 440px;
 }
 
 :deep(.ProseMirror) {
