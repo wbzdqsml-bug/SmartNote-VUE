@@ -205,10 +205,12 @@ onBeforeUnmount(() => {
   line-height: 1.7;
   min-height: 0;
   height: 100%;
+  box-sizing: border-box;
 }
 
 :deep(.ProseMirror) {
   min-height: 100%;
+  height: 100%;
   outline: none;
   font-size: 16px;
   color: #333;
