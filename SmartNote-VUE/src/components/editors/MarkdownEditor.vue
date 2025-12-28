@@ -15,7 +15,8 @@
         v-model:value="localValue"
         type="textarea"
         :placeholder="placeholder"
-        :autosize="{ minRows: 18, maxRows: 18 }"
+        :autosize="false"
+        :rows="18"
         :resizable="false"
         class="md-input"
         @paste="handlePaste"
@@ -162,13 +163,13 @@ const insertTextAtCursor = (text) => {
   flex: 1;
   overflow: hidden;
   display: flex;
-  min-height: 440px;
+  min-height: 0;
+  height: 100%;
 }
 
 .md-input {
   flex: 1;
   height: 100%;
-  min-height: 440px;
 }
 
 .md-input :deep(textarea) {

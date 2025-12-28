@@ -230,7 +230,8 @@ const handleSaveAndClose = () => {
   flex-direction: column;
 }
 .note-editor {
-  height: clamp(620px, 78vh, 880px);
+  height: 100%;
+  min-height: clamp(620px, 78vh, 880px);
   display: flex;
   flex-direction: column;
   border-radius: 12px;
