@@ -14,7 +14,7 @@
     </div>
 
     <div class="editable-wrapper">
-      <editor-content v-if="editor" :editor="editor" />
+      <editor-content v-if="editor" :editor="editor" class="tiptap-editor" />
     </div>
 
     <FilePreviewModal
@@ -210,17 +210,19 @@ onBeforeUnmount(() => {
   max-height: 100%;
 }
 
-:deep(.tiptap-editor) {
+.tiptap-editor {
   flex: 1;
   display: flex;
   flex-direction: column;
   min-height: 0;
+  height: 100%;
 }
 
 :deep(.ProseMirror) {
   flex: 1;
   min-height: 0;
   height: 100%;
+  max-height: 100%;
   outline: none;
   font-size: 16px;
   color: #333;
