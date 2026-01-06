@@ -210,6 +210,13 @@ onBeforeUnmount(() => {
   max-height: 100%;
 }
 
+:deep(.tiptap-editor) {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
 :deep(.ProseMirror) {
   flex: 1;
   min-height: 0;
