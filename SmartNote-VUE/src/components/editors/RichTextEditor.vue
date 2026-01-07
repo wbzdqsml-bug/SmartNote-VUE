@@ -191,35 +191,18 @@
             <n-button
               size="small"
               quaternary
-              :type="editor?.isActive('codeBlock') ? 'primary' : 'default'"
-              @click="editor?.chain().focus().toggleCodeBlock().run()"
+              @click="showFormulaModal = true"
             >
-              <n-icon :component="Code" />
+              <n-icon :component="MathCurve" />
             </n-button>
           </template>
-          代码块
-        </n-tooltip>
-        <n-tooltip trigger="hover">
-          <template #trigger>
-            <n-button size="small" quaternary @click="copyCodeBlock">
-              <n-icon :component="Copy" />
-            </n-button>
-          </template>
-          复制代码
+          插入公式
         </n-tooltip>
         <n-dropdown trigger="click" :options="tableOptions" @select="handleTableAction">
           <n-button size="small" quaternary>
             <n-icon :component="TableIcon" />
           </n-button>
         </n-dropdown>
-        <n-tooltip trigger="hover">
-          <template #trigger>
-            <n-button size="small" quaternary @click="toggleLink">
-              <n-icon :component="LinkIcon" />
-            </n-button>
-          </template>
-          链接
-        </n-tooltip>
         <n-divider vertical />
         <n-tooltip trigger="hover">
           <template #trigger>
@@ -290,11 +273,61 @@
       :url="previewUrl"
       :type="previewType"
     />
+
+    <n-modal v-model:show="showFormulaModal">
+      <n-card title="插入公式" style="width: 520px" closable @close="showFormulaModal = false">
+        <n-form label-width="90px">
+          <n-form-item label="公式类型">
+            <n-select
+              v-model:value="formulaPresetKey"
+              size="small"
+              :options="formulaPresetOptions"
+            />
+          </n-form-item>
+          <template v-if="currentFormulaPreset?.key === 'custom'">
+            <n-form-item label="公式代码">
+              <n-input
+                v-model:value="customLatex"
+                type="textarea"
+                placeholder="请输入 LaTeX 公式，例如 \\frac{a}{b}"
+              />
+            </n-form-item>
+          </template>
+          <template v-else>
+            <n-form-item
+              v-for="field in currentFormulaPreset?.fields || []"
+              :key="field.key"
+              :label="field.label"
+            >
+              <n-input-number
+                v-model:value="formulaValues[field.key]"
+                :min="field.min ?? undefined"
+                :max="field.max ?? undefined"
+                :step="field.step ?? 1"
+                placeholder="请输入数值"
+              />
+            </n-form-item>
+          </template>
+          <n-form-item label="展示方式">
+            <n-checkbox v-model:checked="isBlockFormula">块级公式</n-checkbox>
+          </n-form-item>
+          <n-form-item label="预览">
+            <div class="formula-preview">{{ previewFormula }}</div>
+          </n-form-item>
+        </n-form>
+        <template #footer>
+          <div class="formula-actions">
+            <n-button size="small" @click="showFormulaModal = false">取消</n-button>
+            <n-button size="small" type="primary" @click="insertFormula">插入</n-button>
+          </div>
+        </template>
+      </n-card>
+    </n-modal>
   </div>
 </template>
 
 <script setup>
-import { computed, onBeforeUnmount, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, reactive, ref, watch } from 'vue'
 import { useEditor, EditorContent } from '@tiptap/vue-3'
 import StarterKit from '@tiptap/starter-kit'
 import { Node, mergeAttributes } from '@tiptap/core'
@@ -308,16 +341,29 @@ import { Table } from '@tiptap/extension-table'
 import { TableRow } from '@tiptap/extension-table-row'
 import { TableHeader } from '@tiptap/extension-table-header'
 import { TableCell } from '@tiptap/extension-table-cell'
-import CodeBlockLowlight from '@tiptap/extension-code-block-lowlight'
-import { common, createLowlight } from 'lowlight'
 import Placeholder from '@tiptap/extension-placeholder'
 import MathExtension from '@aarkue/tiptap-math-extension'
-import { NButton, NColorPicker, NDivider, NDropdown, NIcon, NInput, NInputNumber, NSelect, NSpace, NTooltip, useMessage } from 'naive-ui'
 import {
-  Code,
-  Copy,
+  NButton,
+  NCard,
+  NCheckbox,
+  NColorPicker,
+  NDivider,
+  NDropdown,
+  NForm,
+  NFormItem,
+  NIcon,
+  NInput,
+  NInputNumber,
+  NModal,
+  NSelect,
+  NSpace,
+  NTooltip,
+  useMessage
+} from 'naive-ui'
+import {
+  MathCurve,
   Image as ImageIcon,
-  Link as LinkIcon,
   ListBulleted,
   ListChecked,
   ListNumbered,
@@ -427,8 +473,6 @@ const props = defineProps({
 
 const emit = defineEmits(['update:modelValue'])
 
-const lowlight = createLowlight(common)
-
 const message = useMessage()
 const fileInput = ref(null)
 const showPreview = ref(false)
@@ -436,6 +480,107 @@ const previewUrl = ref('')
 const previewType = ref('')
 const imageWidth = ref(null)
 const imageCaption = ref('')
+const showFormulaModal = ref(false)
+const formulaPresetKey = ref('custom')
+const customLatex = ref('')
+const isBlockFormula = ref(false)
+const formulaValues = reactive({})
+
+const formulaPresets = [
+  {
+    key: 'custom',
+    label: '自定义公式',
+    fields: [],
+    build: () => customLatex.value.trim()
+  },
+  {
+    key: 'circle-area',
+    label: '圆面积 A = πr²',
+    fields: [{ key: 'r', label: '半径 r', default: 1, min: 0, step: 0.1 }],
+    build: (values) => `A = \\pi ${values.r ?? 0}^2`
+  },
+  {
+    key: 'circle-circumference',
+    label: '圆周长 C = 2πr',
+    fields: [{ key: 'r', label: '半径 r', default: 1, min: 0, step: 0.1 }],
+    build: (values) => `C = 2\\pi ${values.r ?? 0}`
+  },
+  {
+    key: 'pythagorean',
+    label: '勾股定理 c = √(a² + b²)',
+    fields: [
+      { key: 'a', label: '直角边 a', default: 3, min: 0, step: 1 },
+      { key: 'b', label: '直角边 b', default: 4, min: 0, step: 1 }
+    ],
+    build: (values) => `c = \\sqrt{${values.a ?? 0}^2 + ${values.b ?? 0}^2}`
+  },
+  {
+    key: 'quadratic',
+    label: '一元二次公式',
+    fields: [
+      { key: 'a', label: 'a', default: 1, step: 0.1 },
+      { key: 'b', label: 'b', default: 0, step: 0.1 },
+      { key: 'c', label: 'c', default: 0, step: 0.1 }
+    ],
+    build: (values) =>
+      `x = \\frac{-${values.b ?? 0} \\pm \\sqrt{${values.b ?? 0}^2 - 4\\cdot${values.a ?? 0}\\cdot${values.c ?? 0}}}{2\\cdot${values.a ?? 1}}`
+  },
+  {
+    key: 'ohm',
+    label: '欧姆定律 V = IR',
+    fields: [
+      { key: 'i', label: '电流 I', default: 1, step: 0.1 },
+      { key: 'r', label: '电阻 R', default: 10, step: 0.1 }
+    ],
+    build: (values) => `V = ${values.i ?? 0}\\cdot${values.r ?? 0}`
+  },
+  {
+    key: 'ideal-gas',
+    label: '理想气体 PV = nRT',
+    fields: [
+      { key: 'p', label: '压强 P', default: 1, step: 0.1 },
+      { key: 'v', label: '体积 V', default: 1, step: 0.1 },
+      { key: 'n', label: '物质的量 n', default: 1, step: 0.1 },
+      { key: 't', label: '温度 T', default: 273, step: 1 }
+    ],
+    build: (values) => `${values.p ?? 0}\\cdot${values.v ?? 0} = ${values.n ?? 0} R ${values.t ?? 0}`
+  },
+  {
+    key: 'density',
+    label: '密度 ρ = m/V',
+    fields: [
+      { key: 'm', label: '质量 m', default: 1, step: 0.1 },
+      { key: 'v', label: '体积 V', default: 1, step: 0.1 }
+    ],
+    build: (values) => `\\rho = \\frac{${values.m ?? 0}}{${values.v ?? 1}}`
+  },
+  {
+    key: 'population',
+    label: '指数增长 N = N₀ e^{rt}',
+    fields: [
+      { key: 'n0', label: '初始值 N₀', default: 100, step: 1 },
+      { key: 'r', label: '增长率 r', default: 0.1, step: 0.01 },
+      { key: 't', label: '时间 t', default: 1, step: 1 }
+    ],
+    build: (values) => `N = ${values.n0 ?? 0} e^{${values.r ?? 0} \\cdot ${values.t ?? 0}}`
+  }
+]
+
+const formulaPresetOptions = formulaPresets.map((preset) => ({
+  label: preset.label,
+  value: preset.key
+}))
+
+const currentFormulaPreset = computed(
+  () => formulaPresets.find((preset) => preset.key === formulaPresetKey.value) || formulaPresets[0]
+)
+
+const previewFormula = computed(() => {
+  const preset = currentFormulaPreset.value
+  if (!preset) return ''
+  if (preset.key === 'custom') return customLatex.value.trim()
+  return preset.build(formulaValues) || ''
+})
 
 const headingOptions = [
   { label: '正文', value: 0 },
@@ -490,7 +635,7 @@ const editor = useEditor({
   extensions: [
     StarterKit.configure({
       codeBlock: false,
-      link: { openOnClick: false, autolink: true, linkOnPaste: true }
+      link: { openOnClick: true, autolink: true, linkOnPaste: true }
     }),
     TextStyle,
     Color,
@@ -502,10 +647,9 @@ const editor = useEditor({
     TableRow,
     TableHeader,
     TableCell,
-    CodeBlockLowlight.configure({ lowlight }),
     MathExtension.configure({ evaluation: false }),
     FigureImage,
-    Placeholder.configure({ placeholder: '开始记录... (支持粘贴图片、代码块、数学公式)' })
+    Placeholder.configure({ placeholder: '开始记录... (支持粘贴图片、数学公式)' })
   ],
   editable: !props.readOnly,
   content: addTokenToAttachmentSrc(props.modelValue || ''),
@@ -616,18 +760,6 @@ const clearMarks = () => {
   editor.value?.chain().focus().unsetAllMarks().clearNodes().run()
 }
 
-const toggleLink = () => {
-  if (!editor.value) return
-  if (editor.value.isActive('link')) {
-    editor.value.chain().focus().unsetLink().run()
-    return
-  }
-  const url = window.prompt('请输入链接地址')
-  if (url) {
-    editor.value.chain().focus().setLink({ href: url }).run()
-  }
-}
-
 const handleTableAction = (key) => {
   if (!editor.value) return
   const chain = editor.value.chain().focus()
@@ -655,26 +787,6 @@ const handleTableAction = (key) => {
   }
 }
 
-const copyCodeBlock = async () => {
-  if (!editor.value) return
-  const { state } = editor.value
-  const { $from } = state.selection
-  for (let depth = $from.depth; depth > 0; depth -= 1) {
-    const node = $from.node(depth)
-    if (node.type.name === 'codeBlock') {
-      const text = node.textContent
-      try {
-        await navigator.clipboard.writeText(text)
-        message.success('已复制代码')
-      } catch (error) {
-        message.warning('复制失败，请手动复制')
-      }
-      return
-    }
-  }
-  message.warning('请先选中代码块')
-}
-
 const applyImageWidth = (value) => {
   if (!editor.value) return
   editor.value.chain().focus().updateAttributes('figureImage', { width: value || null }).run()
@@ -691,6 +803,29 @@ const resetImageSize = () => {
 }
 
 const triggerImageUpload = () => fileInput.value?.click()
+
+const resetFormulaValues = () => {
+  const preset = currentFormulaPreset.value
+  if (!preset) return
+  Object.keys(formulaValues).forEach((key) => delete formulaValues[key])
+  preset.fields?.forEach((field) => {
+    formulaValues[field.key] = field.default ?? 0
+  })
+  if (preset.key === 'custom' && !customLatex.value) {
+    customLatex.value = ''
+  }
+}
+
+const insertFormula = () => {
+  const latex = previewFormula.value
+  if (!latex) {
+    message.warning('请先输入或选择公式内容')
+    return
+  }
+  const content = isBlockFormula.value ? `$$${latex}$$` : `$${latex}$`
+  editor.value?.chain().focus().insertContent(content).run()
+  showFormulaModal.value = false
+}
 
 const handleFileSelect = async (event) => {
   const file = event.target.files?.[0]
@@ -731,6 +866,14 @@ watch(
     value.on('selectionUpdate', updateImageState)
     value.on('transaction', updateImageState)
   }
+)
+
+watch(
+  () => formulaPresetKey.value,
+  () => {
+    resetFormulaValues()
+  },
+  { immediate: true }
 )
 
 onBeforeUnmount(() => {
@@ -779,6 +922,21 @@ onBeforeUnmount(() => {
 
 .toolbar :deep(.n-color-picker) {
   width: 30px;
+}
+
+.formula-preview {
+  padding: 8px 10px;
+  border: 1px dashed #e5e7eb;
+  border-radius: 6px;
+  color: #374151;
+  background: #f9fafb;
+  font-size: 14px;
+}
+
+.formula-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
 }
 
 .image-controls {
