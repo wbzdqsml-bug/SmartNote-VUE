@@ -9,133 +9,243 @@
           :options="headingOptions"
         />
         <n-divider vertical />
-        <n-button
-          size="small"
-          quaternary
-          :type="editor?.isActive('bold') ? 'primary' : 'default'"
-          @click="editor?.chain().focus().toggleBold().run()"
-        >
+        <n-tooltip trigger="hover">
+          <template #trigger>
+            <n-button
+              size="small"
+              quaternary
+              :type="editor?.isActive('bold') ? 'primary' : 'default'"
+              @click="editor?.chain().focus().toggleBold().run()"
+            >
+              <n-icon :component="TextBold" />
+            </n-button>
+          </template>
           加粗
-        </n-button>
-        <n-button
-          size="small"
-          quaternary
-          :type="editor?.isActive('italic') ? 'primary' : 'default'"
-          @click="editor?.chain().focus().toggleItalic().run()"
-        >
+        </n-tooltip>
+        <n-tooltip trigger="hover">
+          <template #trigger>
+            <n-button
+              size="small"
+              quaternary
+              :type="editor?.isActive('italic') ? 'primary' : 'default'"
+              @click="editor?.chain().focus().toggleItalic().run()"
+            >
+              <n-icon :component="TextItalic" />
+            </n-button>
+          </template>
           斜体
-        </n-button>
-        <n-button
-          size="small"
-          quaternary
-          :type="editor?.isActive('underline') ? 'primary' : 'default'"
-          @click="editor?.chain().focus().toggleUnderline().run()"
-        >
+        </n-tooltip>
+        <n-tooltip trigger="hover">
+          <template #trigger>
+            <n-button
+              size="small"
+              quaternary
+              :type="editor?.isActive('underline') ? 'primary' : 'default'"
+              @click="editor?.chain().focus().toggleUnderline().run()"
+            >
+              <n-icon :component="TextUnderline" />
+            </n-button>
+          </template>
           下划线
-        </n-button>
-        <n-button
-          size="small"
-          quaternary
-          :type="editor?.isActive('strike') ? 'primary' : 'default'"
-          @click="editor?.chain().focus().toggleStrike().run()"
-        >
+        </n-tooltip>
+        <n-tooltip trigger="hover">
+          <template #trigger>
+            <n-button
+              size="small"
+              quaternary
+              :type="editor?.isActive('strike') ? 'primary' : 'default'"
+              @click="editor?.chain().focus().toggleStrike().run()"
+            >
+              <n-icon :component="TextStrikethrough" />
+            </n-button>
+          </template>
           删除线
-        </n-button>
+        </n-tooltip>
         <n-divider vertical />
-        <n-button
-          size="small"
-          quaternary
-          :type="editor?.isActive({ textAlign: 'left' }) ? 'primary' : 'default'"
-          @click="editor?.chain().focus().setTextAlign('left').run()"
-        >
+        <n-tooltip trigger="hover">
+          <template #trigger>
+            <n-button
+              size="small"
+              quaternary
+              :type="editor?.isActive({ textAlign: 'left' }) ? 'primary' : 'default'"
+              @click="editor?.chain().focus().setTextAlign('left').run()"
+            >
+              <n-icon :component="TextAlignLeft" />
+            </n-button>
+          </template>
           左对齐
-        </n-button>
-        <n-button
-          size="small"
-          quaternary
-          :type="editor?.isActive({ textAlign: 'center' }) ? 'primary' : 'default'"
-          @click="editor?.chain().focus().setTextAlign('center').run()"
-        >
+        </n-tooltip>
+        <n-tooltip trigger="hover">
+          <template #trigger>
+            <n-button
+              size="small"
+              quaternary
+              :type="editor?.isActive({ textAlign: 'center' }) ? 'primary' : 'default'"
+              @click="editor?.chain().focus().setTextAlign('center').run()"
+            >
+              <n-icon :component="TextAlignCenter" />
+            </n-button>
+          </template>
           居中
-        </n-button>
-        <n-button
-          size="small"
-          quaternary
-          :type="editor?.isActive({ textAlign: 'right' }) ? 'primary' : 'default'"
-          @click="editor?.chain().focus().setTextAlign('right').run()"
-        >
+        </n-tooltip>
+        <n-tooltip trigger="hover">
+          <template #trigger>
+            <n-button
+              size="small"
+              quaternary
+              :type="editor?.isActive({ textAlign: 'right' }) ? 'primary' : 'default'"
+              @click="editor?.chain().focus().setTextAlign('right').run()"
+            >
+              <n-icon :component="TextAlignRight" />
+            </n-button>
+          </template>
           右对齐
-        </n-button>
+        </n-tooltip>
         <n-divider vertical />
-        <n-color-picker
-          size="small"
-          :show-alpha="false"
-          :value="currentTextColor"
-          @update:value="setTextColor"
-        />
-        <n-color-picker
-          size="small"
-          :show-alpha="false"
-          :value="currentHighlightColor"
-          @update:value="setHighlightColor"
-        />
-        <n-button size="small" quaternary @click="clearMarks">清除格式</n-button>
+        <n-tooltip trigger="hover">
+          <template #trigger>
+            <n-color-picker
+              size="small"
+              :show-alpha="false"
+              :value="currentTextColor"
+              @update:value="setTextColor"
+            />
+          </template>
+          文字颜色
+        </n-tooltip>
+        <n-tooltip trigger="hover">
+          <template #trigger>
+            <n-color-picker
+              size="small"
+              :show-alpha="false"
+              :value="currentHighlightColor"
+              @update:value="setHighlightColor"
+            />
+          </template>
+          高亮颜色
+        </n-tooltip>
+        <n-tooltip trigger="hover">
+          <template #trigger>
+            <n-button size="small" quaternary @click="clearMarks">
+              <n-icon :component="TextClearFormat" />
+            </n-button>
+          </template>
+          清除格式
+        </n-tooltip>
         <n-divider vertical />
-        <n-button
-          size="small"
-          quaternary
-          :type="editor?.isActive('bulletList') ? 'primary' : 'default'"
-          @click="editor?.chain().focus().toggleBulletList().run()"
-        >
+        <n-tooltip trigger="hover">
+          <template #trigger>
+            <n-button
+              size="small"
+              quaternary
+              :type="editor?.isActive('bulletList') ? 'primary' : 'default'"
+              @click="editor?.chain().focus().toggleBulletList().run()"
+            >
+              <n-icon :component="ListBulleted" />
+            </n-button>
+          </template>
           无序列表
-        </n-button>
-        <n-button
-          size="small"
-          quaternary
-          :type="editor?.isActive('orderedList') ? 'primary' : 'default'"
-          @click="editor?.chain().focus().toggleOrderedList().run()"
-        >
+        </n-tooltip>
+        <n-tooltip trigger="hover">
+          <template #trigger>
+            <n-button
+              size="small"
+              quaternary
+              :type="editor?.isActive('orderedList') ? 'primary' : 'default'"
+              @click="editor?.chain().focus().toggleOrderedList().run()"
+            >
+              <n-icon :component="ListNumbered" />
+            </n-button>
+          </template>
           有序列表
-        </n-button>
-        <n-button
-          size="small"
-          quaternary
-          :type="editor?.isActive('taskList') ? 'primary' : 'default'"
-          @click="editor?.chain().focus().toggleTaskList().run()"
-        >
+        </n-tooltip>
+        <n-tooltip trigger="hover">
+          <template #trigger>
+            <n-button
+              size="small"
+              quaternary
+              :type="editor?.isActive('taskList') ? 'primary' : 'default'"
+              @click="editor?.chain().focus().toggleTaskList().run()"
+            >
+              <n-icon :component="ListChecked" />
+            </n-button>
+          </template>
           待办
-        </n-button>
-        <n-button
-          size="small"
-          quaternary
-          :type="editor?.isActive('blockquote') ? 'primary' : 'default'"
-          @click="editor?.chain().focus().toggleBlockquote().run()"
-        >
+        </n-tooltip>
+        <n-tooltip trigger="hover">
+          <template #trigger>
+            <n-button
+              size="small"
+              quaternary
+              :type="editor?.isActive('blockquote') ? 'primary' : 'default'"
+              @click="editor?.chain().focus().toggleBlockquote().run()"
+            >
+              <n-icon :component="Quotes" />
+            </n-button>
+          </template>
           引用
-        </n-button>
+        </n-tooltip>
         <n-divider vertical />
-        <n-button
-          size="small"
-          quaternary
-          :type="editor?.isActive('codeBlock') ? 'primary' : 'default'"
-          @click="editor?.chain().focus().toggleCodeBlock().run()"
-        >
+        <n-tooltip trigger="hover">
+          <template #trigger>
+            <n-button
+              size="small"
+              quaternary
+              :type="editor?.isActive('codeBlock') ? 'primary' : 'default'"
+              @click="editor?.chain().focus().toggleCodeBlock().run()"
+            >
+              <n-icon :component="Code" />
+            </n-button>
+          </template>
           代码块
-        </n-button>
-        <n-button size="small" quaternary @click="copyCodeBlock">复制代码</n-button>
+        </n-tooltip>
+        <n-tooltip trigger="hover">
+          <template #trigger>
+            <n-button size="small" quaternary @click="copyCodeBlock">
+              <n-icon :component="Copy" />
+            </n-button>
+          </template>
+          复制代码
+        </n-tooltip>
         <n-dropdown trigger="click" :options="tableOptions" @select="handleTableAction">
-          <n-button size="small" quaternary>表格</n-button>
+          <n-button size="small" quaternary>
+            <n-icon :component="TableIcon" />
+          </n-button>
         </n-dropdown>
-        <n-button size="small" quaternary @click="toggleLink">链接</n-button>
+        <n-tooltip trigger="hover">
+          <template #trigger>
+            <n-button size="small" quaternary @click="toggleLink">
+              <n-icon :component="LinkIcon" />
+            </n-button>
+          </template>
+          链接
+        </n-tooltip>
         <n-divider vertical />
-        <n-button size="small" quaternary @click="editor?.chain().focus().undo().run()">
+        <n-tooltip trigger="hover">
+          <template #trigger>
+            <n-button size="small" quaternary @click="editor?.chain().focus().undo().run()">
+              <n-icon :component="Undo" />
+            </n-button>
+          </template>
           撤销
-        </n-button>
-        <n-button size="small" quaternary @click="editor?.chain().focus().redo().run()">
+        </n-tooltip>
+        <n-tooltip trigger="hover">
+          <template #trigger>
+            <n-button size="small" quaternary @click="editor?.chain().focus().redo().run()">
+              <n-icon :component="Redo" />
+            </n-button>
+          </template>
           重做
-        </n-button>
+        </n-tooltip>
         <n-divider vertical />
-        <n-button size="small" quaternary @click="triggerImageUpload">上传图片</n-button>
+        <n-tooltip trigger="hover">
+          <template #trigger>
+            <n-button size="small" quaternary @click="triggerImageUpload">
+              <n-icon :component="ImageIcon" />
+            </n-button>
+          </template>
+          上传图片
+        </n-tooltip>
         <div v-if="isImageSelected" class="image-controls">
           <n-input-number
             v-model:value="imageWidth"
@@ -152,7 +262,14 @@
             placeholder="图片说明"
             @update:value="applyImageCaption"
           />
-          <n-button size="small" quaternary @click="resetImageSize">原始大小</n-button>
+          <n-tooltip trigger="hover">
+            <template #trigger>
+              <n-button size="small" quaternary @click="resetImageSize">
+                <n-icon :component="Reset" />
+              </n-button>
+            </template>
+            原始大小
+          </n-tooltip>
         </div>
       </n-space>
       <input
@@ -184,9 +301,7 @@ import { Node, mergeAttributes } from '@tiptap/core'
 import { TextStyle } from '@tiptap/extension-text-style'
 import Color from '@tiptap/extension-color'
 import Highlight from '@tiptap/extension-highlight'
-import Underline from '@tiptap/extension-underline'
 import TextAlign from '@tiptap/extension-text-align'
-import Link from '@tiptap/extension-link'
 import TaskList from '@tiptap/extension-task-list'
 import TaskItem from '@tiptap/extension-task-item'
 import { Table } from '@tiptap/extension-table'
@@ -197,17 +312,29 @@ import CodeBlockLowlight from '@tiptap/extension-code-block-lowlight'
 import { common, createLowlight } from 'lowlight'
 import Placeholder from '@tiptap/extension-placeholder'
 import MathExtension from '@aarkue/tiptap-math-extension'
+import { NButton, NColorPicker, NDivider, NDropdown, NIcon, NInput, NInputNumber, NSelect, NSpace, NTooltip, useMessage } from 'naive-ui'
 import {
-  NButton,
-  NColorPicker,
-  NDivider,
-  NDropdown,
-  NInput,
-  NInputNumber,
-  NSelect,
-  NSpace,
-  useMessage
-} from 'naive-ui'
+  Code,
+  Copy,
+  Image as ImageIcon,
+  Link as LinkIcon,
+  ListBulleted,
+  ListChecked,
+  ListNumbered,
+  Quotes,
+  Redo,
+  Reset,
+  Table as TableIcon,
+  TextAlignCenter,
+  TextAlignLeft,
+  TextAlignRight,
+  TextBold,
+  TextClearFormat,
+  TextItalic,
+  TextStrikethrough,
+  TextUnderline,
+  Undo
+} from '@vicons/carbon'
 import noteApi from '@/api/note'
 import FilePreviewModal from '@/components/FilePreviewModal.vue'
 import { addTokenToAttachmentSrc, stripTokenFromAttachmentSrc } from '@/utils/attachmentToken'
@@ -217,7 +344,7 @@ const FigureImage = Node.create({
   group: 'block',
   draggable: true,
   selectable: true,
-  content: 'inline*',
+  content: 'text*',
   addAttributes() {
     return {
       src: { default: null },
@@ -232,6 +359,8 @@ const FigureImage = Node.create({
     return [
       {
         tag: 'figure[data-type="figure-image"]',
+        contentElement: 'figcaption',
+        priority: 1000,
         getAttrs: (element) => {
           const img = element.querySelector('img')
           const caption = element.querySelector('figcaption')
@@ -359,13 +488,14 @@ const uploadImage = async (file) => {
 
 const editor = useEditor({
   extensions: [
-    StarterKit.configure({ codeBlock: false }),
+    StarterKit.configure({
+      codeBlock: false,
+      link: { openOnClick: false, autolink: true, linkOnPaste: true }
+    }),
     TextStyle,
     Color,
     Highlight.configure({ multicolor: true }),
-    Underline,
     TextAlign.configure({ types: ['heading', 'paragraph'] }),
-    Link.configure({ openOnClick: false, autolink: true, linkOnPaste: true }),
     TaskList,
     TaskItem.configure({ nested: true }),
     Table.configure({ resizable: true }),
@@ -635,6 +765,20 @@ onBeforeUnmount(() => {
 
 .heading-select {
   min-width: 120px;
+}
+
+.toolbar :deep(.n-button) {
+  min-width: 34px;
+}
+
+.toolbar :deep(.n-button__content) {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.toolbar :deep(.n-color-picker) {
+  width: 30px;
 }
 
 .image-controls {
