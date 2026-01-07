@@ -14,6 +14,18 @@
       <n-grid cols="1 s:2 m:2 l:2" :x-gap="16" :y-gap="16" responsive="screen">
         <n-gi span="2">
           <n-card title="学习活动热力图" :segmented="true">
+            <template #header-extra>
+              <div class="heatmap-toolbar">
+                <n-select
+                  v-model:value="selectedYear"
+                  size="small"
+                  :options="yearOptions"
+                  placeholder="选择年份"
+                  style="width: 140px"
+                  :disabled="loadingState.heatmap"
+                />
+              </div>
+            </template>
             <div class="chart-wrapper">
               <div ref="heatmapRef" class="chart-container"></div>
               <div v-if="!heatmapData.length && !loadingState.heatmap" class="empty-hint">
@@ -75,9 +87,9 @@
 </template>
 
 <script setup>
-import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
-import { NButton, NCard, NGi, NGrid, NSpin, NModal, NList, NListItem, NTag, NEmpty, useMessage } from 'naive-ui'
+import { NButton, NCard, NGi, NGrid, NSpin, NModal, NList, NListItem, NTag, NEmpty, NSelect, useMessage } from 'naive-ui'
 import * as echarts from 'echarts/core'
 import { HeatmapChart, PieChart, BarChart } from 'echarts/charts'
 import {
@@ -116,6 +128,7 @@ const workspaceRef = ref(null)
 
 // --- Data state ---
 const heatmapData = ref([])
+const selectedYear = ref(String(new Date().getFullYear()))
 const categoryData = ref([])
 const tagData = ref([])
 const workspaceData = ref([])
@@ -142,6 +155,30 @@ const chartMap = {
   tag: null,
   workspace: null
 }
+
+const yearOptions = computed(() => {
+  const years = [...new Set(heatmapData.value.map(item => item.date.slice(0, 4)))]
+    .filter(Boolean)
+    .sort((a, b) => b.localeCompare(a))
+
+  const currentYear = String(new Date().getFullYear())
+  if (!years.includes(currentYear)) years.push(currentYear)
+
+  return years
+    .sort((a, b) => b.localeCompare(a))
+    .map(year => ({ label: `${year} 年`, value: year }))
+})
+
+watch(yearOptions, (options) => {
+  const values = options.map(option => option.value)
+  if (!values.length) {
+    selectedYear.value = String(new Date().getFullYear())
+    return
+  }
+  if (!values.includes(selectedYear.value)) {
+    selectedYear.value = values[0]
+  }
+})
 
 // --- Data Processing & Normalization ---
 const resolveData = (response) => {
@@ -198,24 +235,25 @@ const normaliseWorkspace = (list) =>
 const renderHeatmapChart = () => {
   if (!chartMap.heatmap || !heatmapRef.value) return;
 
-  // 1. Get all unique years from data, sorted descending
-  let years = [...new Set(heatmapData.value.map(item => item.date.slice(0, 4)))]
-    .sort((a, b) => b.localeCompare(a)); 
+  const allYears = [...new Set(heatmapData.value.map(item => item.date.slice(0, 4)))]
+    .filter(Boolean)
+    .sort((a, b) => b.localeCompare(a))
 
-  // If no data, prepare to show a single, empty calendar for the current year
-  if (years.length === 0) {
-    years = [String(new Date().getFullYear())];
-  }
+  const fallbackYear = String(new Date().getFullYear())
+  const targetYear = selectedYear.value || allYears[0] || fallbackYear
+  const years = [targetYear]
 
-  // Only show cells with activity (count > 0)
-  const seriesData = heatmapData.value
+  const filteredHeatmap = heatmapData.value.filter(item => item.date.startsWith(targetYear))
+
+  // Only show cells with activity (count > 0) in the selected year
+  const seriesData = filteredHeatmap
     .filter(item => item.count > 0)
     .map(item => ({
       value: [item.date, item.count],
       notes: item.notes || []
     }));
 
-  const maxCount = Math.max(...(heatmapData.value.map(item => item.count)), 0) || 1;
+  const maxCount = Math.max(...(filteredHeatmap.map(item => item.count)), 0) || 1;
 
   // 2. Create calendar components for each year
   const calendarComponents = years.map((year, index) => ({
@@ -444,6 +482,10 @@ const renderAllCharts = () => {
   renderWorkspaceChart()
 }
 
+watch(selectedYear, () => {
+  renderHeatmapChart()
+})
+
 
 // --- API & Event Handlers ---
 
@@ -579,6 +621,12 @@ onBeforeUnmount(() => {
 
 .chart-wrapper {
   position: relative;
+}
+
+.heatmap-toolbar {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
 }
 
 .chart-container {
