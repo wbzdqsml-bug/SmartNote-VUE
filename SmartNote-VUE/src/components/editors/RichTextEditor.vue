@@ -1,9 +1,160 @@
 <template>
   <div class="rich-text-editor" :class="{ 'is-read-only': readOnly }">
     <div v-if="editor && !readOnly" class="toolbar">
-      <n-button size="small" quaternary @click="triggerImageUpload">
-        上传图片
-      </n-button>
+      <n-space align="center" size="small" wrap>
+        <n-select
+          v-model:value="headingLevel"
+          size="small"
+          class="heading-select"
+          :options="headingOptions"
+        />
+        <n-divider vertical />
+        <n-button
+          size="small"
+          quaternary
+          :type="editor?.isActive('bold') ? 'primary' : 'default'"
+          @click="editor?.chain().focus().toggleBold().run()"
+        >
+          加粗
+        </n-button>
+        <n-button
+          size="small"
+          quaternary
+          :type="editor?.isActive('italic') ? 'primary' : 'default'"
+          @click="editor?.chain().focus().toggleItalic().run()"
+        >
+          斜体
+        </n-button>
+        <n-button
+          size="small"
+          quaternary
+          :type="editor?.isActive('underline') ? 'primary' : 'default'"
+          @click="editor?.chain().focus().toggleUnderline().run()"
+        >
+          下划线
+        </n-button>
+        <n-button
+          size="small"
+          quaternary
+          :type="editor?.isActive('strike') ? 'primary' : 'default'"
+          @click="editor?.chain().focus().toggleStrike().run()"
+        >
+          删除线
+        </n-button>
+        <n-divider vertical />
+        <n-button
+          size="small"
+          quaternary
+          :type="editor?.isActive({ textAlign: 'left' }) ? 'primary' : 'default'"
+          @click="editor?.chain().focus().setTextAlign('left').run()"
+        >
+          左对齐
+        </n-button>
+        <n-button
+          size="small"
+          quaternary
+          :type="editor?.isActive({ textAlign: 'center' }) ? 'primary' : 'default'"
+          @click="editor?.chain().focus().setTextAlign('center').run()"
+        >
+          居中
+        </n-button>
+        <n-button
+          size="small"
+          quaternary
+          :type="editor?.isActive({ textAlign: 'right' }) ? 'primary' : 'default'"
+          @click="editor?.chain().focus().setTextAlign('right').run()"
+        >
+          右对齐
+        </n-button>
+        <n-divider vertical />
+        <n-color-picker
+          size="small"
+          :show-alpha="false"
+          :value="currentTextColor"
+          @update:value="setTextColor"
+        />
+        <n-color-picker
+          size="small"
+          :show-alpha="false"
+          :value="currentHighlightColor"
+          @update:value="setHighlightColor"
+        />
+        <n-button size="small" quaternary @click="clearMarks">清除格式</n-button>
+        <n-divider vertical />
+        <n-button
+          size="small"
+          quaternary
+          :type="editor?.isActive('bulletList') ? 'primary' : 'default'"
+          @click="editor?.chain().focus().toggleBulletList().run()"
+        >
+          无序列表
+        </n-button>
+        <n-button
+          size="small"
+          quaternary
+          :type="editor?.isActive('orderedList') ? 'primary' : 'default'"
+          @click="editor?.chain().focus().toggleOrderedList().run()"
+        >
+          有序列表
+        </n-button>
+        <n-button
+          size="small"
+          quaternary
+          :type="editor?.isActive('taskList') ? 'primary' : 'default'"
+          @click="editor?.chain().focus().toggleTaskList().run()"
+        >
+          待办
+        </n-button>
+        <n-button
+          size="small"
+          quaternary
+          :type="editor?.isActive('blockquote') ? 'primary' : 'default'"
+          @click="editor?.chain().focus().toggleBlockquote().run()"
+        >
+          引用
+        </n-button>
+        <n-divider vertical />
+        <n-button
+          size="small"
+          quaternary
+          :type="editor?.isActive('codeBlock') ? 'primary' : 'default'"
+          @click="editor?.chain().focus().toggleCodeBlock().run()"
+        >
+          代码块
+        </n-button>
+        <n-button size="small" quaternary @click="copyCodeBlock">复制代码</n-button>
+        <n-dropdown trigger="click" :options="tableOptions" @select="handleTableAction">
+          <n-button size="small" quaternary>表格</n-button>
+        </n-dropdown>
+        <n-button size="small" quaternary @click="toggleLink">链接</n-button>
+        <n-divider vertical />
+        <n-button size="small" quaternary @click="editor?.chain().focus().undo().run()">
+          撤销
+        </n-button>
+        <n-button size="small" quaternary @click="editor?.chain().focus().redo().run()">
+          重做
+        </n-button>
+        <n-divider vertical />
+        <n-button size="small" quaternary @click="triggerImageUpload">上传图片</n-button>
+        <div v-if="isImageSelected" class="image-controls">
+          <n-input-number
+            v-model:value="imageWidth"
+            size="small"
+            placeholder="宽度(px)"
+            :min="40"
+            :max="1200"
+            :step="10"
+            @update:value="applyImageWidth"
+          />
+          <n-input
+            v-model:value="imageCaption"
+            size="small"
+            placeholder="图片说明"
+            @update:value="applyImageCaption"
+          />
+          <n-button size="small" quaternary @click="resetImageSize">原始大小</n-button>
+        </div>
+      </n-space>
       <input
         ref="fileInput"
         type="file"
@@ -26,19 +177,118 @@
 </template>
 
 <script setup>
-import { onBeforeUnmount, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import { useEditor, EditorContent } from '@tiptap/vue-3'
 import StarterKit from '@tiptap/starter-kit'
+import { Node, mergeAttributes } from '@tiptap/core'
 import { TextStyle } from '@tiptap/extension-text-style'
 import Color from '@tiptap/extension-color'
 import Highlight from '@tiptap/extension-highlight'
-import Image from '@tiptap/extension-image'
+import Underline from '@tiptap/extension-underline'
+import TextAlign from '@tiptap/extension-text-align'
+import Link from '@tiptap/extension-link'
+import TaskList from '@tiptap/extension-task-list'
+import TaskItem from '@tiptap/extension-task-item'
+import Table from '@tiptap/extension-table'
+import TableRow from '@tiptap/extension-table-row'
+import TableHeader from '@tiptap/extension-table-header'
+import TableCell from '@tiptap/extension-table-cell'
+import CodeBlockLowlight from '@tiptap/extension-code-block-lowlight'
+import { common, createLowlight } from 'lowlight'
 import Placeholder from '@tiptap/extension-placeholder'
 import MathExtension from '@aarkue/tiptap-math-extension'
-import { NButton, useMessage } from 'naive-ui'
+import {
+  NButton,
+  NColorPicker,
+  NDivider,
+  NDropdown,
+  NInput,
+  NInputNumber,
+  NSelect,
+  NSpace,
+  useMessage
+} from 'naive-ui'
 import noteApi from '@/api/note'
 import FilePreviewModal from '@/components/FilePreviewModal.vue'
 import { addTokenToAttachmentSrc, stripTokenFromAttachmentSrc } from '@/utils/attachmentToken'
+
+const FigureImage = Node.create({
+  name: 'figureImage',
+  group: 'block',
+  draggable: true,
+  selectable: true,
+  content: 'inline*',
+  addAttributes() {
+    return {
+      src: { default: null },
+      alt: { default: null },
+      title: { default: null },
+      width: { default: null },
+      height: { default: null },
+      caption: { default: '' }
+    }
+  },
+  parseHTML() {
+    return [
+      {
+        tag: 'figure[data-type="figure-image"]',
+        getAttrs: (element) => {
+          const img = element.querySelector('img')
+          const caption = element.querySelector('figcaption')
+          return {
+            src: img?.getAttribute('src') || null,
+            alt: img?.getAttribute('alt') || null,
+            title: img?.getAttribute('title') || null,
+            width: img?.getAttribute('width') || img?.style?.width || null,
+            height: img?.getAttribute('height') || img?.style?.height || null,
+            caption: caption?.textContent || ''
+          }
+        }
+      },
+      {
+        tag: 'img[src]',
+        getAttrs: (element) => ({
+          src: element.getAttribute('src'),
+          alt: element.getAttribute('alt') || null,
+          title: element.getAttribute('title') || null,
+          width: element.getAttribute('width') || element.style?.width || null,
+          height: element.getAttribute('height') || element.style?.height || null,
+          caption: ''
+        })
+      }
+    ]
+  },
+  renderHTML({ HTMLAttributes }) {
+    const { src, alt, title, width, height, caption, ...rest } = HTMLAttributes
+    const formatSize = (value) => {
+      if (!value) return null
+      const numeric = Number(value)
+      if (!Number.isNaN(numeric)) return `${numeric}px`
+      return value
+    }
+    const styles = [
+      width ? `width: ${formatSize(width)}` : null,
+      height ? `height: ${formatSize(height)}` : null
+    ]
+      .filter(Boolean)
+      .join('; ')
+
+    return [
+      'figure',
+      mergeAttributes(rest, { 'data-type': 'figure-image' }),
+      ['img', mergeAttributes({ src, alt, title, style: styles || null })],
+      ['figcaption', {}, caption || '']
+    ]
+  },
+  addCommands() {
+    return {
+      setFigureImage:
+        (attrs) =>
+        ({ commands }) =>
+          commands.insertContent({ type: this.name, attrs })
+    }
+  }
+})
 
 const props = defineProps({
   modelValue: { type: String, default: '' },
@@ -48,11 +298,40 @@ const props = defineProps({
 
 const emit = defineEmits(['update:modelValue'])
 
+const lowlight = createLowlight(common)
+
 const message = useMessage()
 const fileInput = ref(null)
 const showPreview = ref(false)
 const previewUrl = ref('')
 const previewType = ref('')
+const imageWidth = ref(null)
+const imageCaption = ref('')
+
+const headingOptions = [
+  { label: '正文', value: 0 },
+  { label: '标题 1', value: 1 },
+  { label: '标题 2', value: 2 },
+  { label: '标题 3', value: 3 }
+]
+
+const tableOptions = [
+  { label: '插入 3x3 表格', key: 'insert' },
+  { label: '新增行', key: 'addRow' },
+  { label: '新增列', key: 'addColumn' },
+  { label: '删除行', key: 'deleteRow' },
+  { label: '删除列', key: 'deleteColumn' },
+  { label: '删除表格', key: 'deleteTable' }
+]
+
+const resolveImageSrc = (src) => {
+  if (!src) return src
+  const html = addTokenToAttachmentSrc(`<img src="${src}" />`)
+  if (typeof DOMParser === 'undefined') return src
+  const parser = new DOMParser()
+  const img = parser.parseFromString(html, 'text/html').querySelector('img')
+  return img?.getAttribute('src') || src
+}
 
 const uploadImage = async (file) => {
   if (!props.noteId) {
@@ -80,19 +359,29 @@ const uploadImage = async (file) => {
 
 const editor = useEditor({
   extensions: [
-    StarterKit,
+    StarterKit.configure({ codeBlock: false }),
     TextStyle,
     Color,
     Highlight.configure({ multicolor: true }),
+    Underline,
+    TextAlign.configure({ types: ['heading', 'paragraph'] }),
+    Link.configure({ openOnClick: false, autolink: true, linkOnPaste: true }),
+    TaskList,
+    TaskItem.configure({ nested: true }),
+    Table.configure({ resizable: true }),
+    TableRow,
+    TableHeader,
+    TableCell,
+    CodeBlockLowlight.configure({ lowlight }),
     MathExtension.configure({ evaluation: false }),
-    Image.configure({ inline: true, allowBase64: true }),
-    Placeholder.configure({ placeholder: '开始记录... (支持粘贴图片)' })
+    FigureImage,
+    Placeholder.configure({ placeholder: '开始记录... (支持粘贴图片、代码块、数学公式)' })
   ],
   editable: !props.readOnly,
   content: addTokenToAttachmentSrc(props.modelValue || ''),
   editorProps: {
-    handleClickOn(view, pos, node, nodePos, event, direct) {
-      if (node.type.name === 'image') {
+    handleClickOn(view, pos, node) {
+      if (node.type.name === 'figureImage') {
         previewUrl.value = node.attrs.src
         previewType.value = 'image/png'
         showPreview.value = true
@@ -110,18 +399,33 @@ const editor = useEditor({
         const file = imageItem.getAsFile()
         uploadImage(file).then((url) => {
           if (url && editor.value) {
-            const withToken = addTokenToAttachmentSrc(`<img src="${url}" />`)
-            const parser = new DOMParser()
-            const img = parser.parseFromString(withToken, 'text/html').querySelector('img')
             editor.value
               .chain()
               .focus()
-              .setImage({ src: img?.getAttribute('src') || url })
+              .setFigureImage({ src: resolveImageSrc(url) })
               .run()
           }
         })
         return true
       }
+
+      const html = event.clipboardData?.getData('text/html')
+      if (html) {
+        const parser = new DOMParser()
+        const doc = parser.parseFromString(html, 'text/html')
+        const img = doc.querySelector('img')
+        const src = img?.getAttribute('src')
+        if (src) {
+          event.preventDefault()
+          editor.value
+            ?.chain()
+            .focus()
+            .setFigureImage({ src: resolveImageSrc(src) })
+            .run()
+          return true
+        }
+      }
+
       return false
     }
   },
@@ -132,6 +436,130 @@ const editor = useEditor({
   }
 })
 
+const headingLevel = computed({
+  get: () => {
+    if (!editor.value) return 0
+    if (editor.value.isActive('heading', { level: 1 })) return 1
+    if (editor.value.isActive('heading', { level: 2 })) return 2
+    if (editor.value.isActive('heading', { level: 3 })) return 3
+    return 0
+  },
+  set: (value) => {
+    if (!editor.value) return
+    if (!value) {
+      editor.value.chain().focus().setParagraph().run()
+      return
+    }
+    editor.value.chain().focus().toggleHeading({ level: value }).run()
+  }
+})
+
+const currentTextColor = computed(() => editor.value?.getAttributes('textStyle')?.color || null)
+const currentHighlightColor = computed(
+  () => editor.value?.getAttributes('highlight')?.color || null
+)
+const isImageSelected = computed(() => editor.value?.isActive('figureImage') || false)
+
+const updateImageState = () => {
+  if (!editor.value || !editor.value.isActive('figureImage')) {
+    imageWidth.value = null
+    imageCaption.value = ''
+    return
+  }
+
+  const attrs = editor.value.getAttributes('figureImage')
+  imageWidth.value = attrs.width ? Number(attrs.width) : null
+  imageCaption.value = attrs.caption || ''
+}
+
+const setTextColor = (value) => {
+  if (!editor.value) return
+  editor.value.chain().focus().setColor(value).run()
+}
+
+const setHighlightColor = (value) => {
+  if (!editor.value) return
+  editor.value.chain().focus().toggleHighlight({ color: value }).run()
+}
+
+const clearMarks = () => {
+  editor.value?.chain().focus().unsetAllMarks().clearNodes().run()
+}
+
+const toggleLink = () => {
+  if (!editor.value) return
+  if (editor.value.isActive('link')) {
+    editor.value.chain().focus().unsetLink().run()
+    return
+  }
+  const url = window.prompt('请输入链接地址')
+  if (url) {
+    editor.value.chain().focus().setLink({ href: url }).run()
+  }
+}
+
+const handleTableAction = (key) => {
+  if (!editor.value) return
+  const chain = editor.value.chain().focus()
+  switch (key) {
+    case 'insert':
+      chain.insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run()
+      break
+    case 'addRow':
+      chain.addRowAfter().run()
+      break
+    case 'addColumn':
+      chain.addColumnAfter().run()
+      break
+    case 'deleteRow':
+      chain.deleteRow().run()
+      break
+    case 'deleteColumn':
+      chain.deleteColumn().run()
+      break
+    case 'deleteTable':
+      chain.deleteTable().run()
+      break
+    default:
+      break
+  }
+}
+
+const copyCodeBlock = async () => {
+  if (!editor.value) return
+  const { state } = editor.value
+  const { $from } = state.selection
+  for (let depth = $from.depth; depth > 0; depth -= 1) {
+    const node = $from.node(depth)
+    if (node.type.name === 'codeBlock') {
+      const text = node.textContent
+      try {
+        await navigator.clipboard.writeText(text)
+        message.success('已复制代码')
+      } catch (error) {
+        message.warning('复制失败，请手动复制')
+      }
+      return
+    }
+  }
+  message.warning('请先选中代码块')
+}
+
+const applyImageWidth = (value) => {
+  if (!editor.value) return
+  editor.value.chain().focus().updateAttributes('figureImage', { width: value || null }).run()
+}
+
+const applyImageCaption = (value) => {
+  if (!editor.value) return
+  editor.value.chain().focus().updateAttributes('figureImage', { caption: value || '' }).run()
+}
+
+const resetImageSize = () => {
+  if (!editor.value) return
+  editor.value.chain().focus().updateAttributes('figureImage', { width: null, height: null }).run()
+}
+
 const triggerImageUpload = () => fileInput.value?.click()
 
 const handleFileSelect = async (event) => {
@@ -139,10 +567,11 @@ const handleFileSelect = async (event) => {
   if (!file) return
   const url = await uploadImage(file)
   if (url && editor.value) {
-    const withToken = addTokenToAttachmentSrc(`<img src="${url}" />`)
-    const parser = new DOMParser()
-    const img = parser.parseFromString(withToken, 'text/html').querySelector('img')
-    editor.value.chain().focus().setImage({ src: img?.getAttribute('src') || url }).run()
+    editor.value
+      .chain()
+      .focus()
+      .setFigureImage({ src: resolveImageSrc(url) })
+      .run()
   }
   event.target.value = ''
 }
@@ -162,6 +591,15 @@ watch(
   () => props.readOnly,
   (readOnly) => {
     editor.value?.setEditable(!readOnly)
+  }
+)
+
+watch(
+  () => editor.value,
+  (value) => {
+    if (!value) return
+    value.on('selectionUpdate', updateImageState)
+    value.on('transaction', updateImageState)
   }
 )
 
@@ -192,6 +630,17 @@ onBeforeUnmount(() => {
   align-items: center;
   gap: 8px;
   flex-shrink: 0;
+  flex-wrap: wrap;
+}
+
+.heading-select {
+  min-width: 120px;
+}
+
+.image-controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 
 .file-input {
@@ -230,15 +679,105 @@ onBeforeUnmount(() => {
   padding: 4px 0;
 }
 
-:deep(.ProseMirror img) {
+:deep(.ProseMirror h1) {
+  font-size: 28px;
+  margin: 16px 0 12px;
+}
+
+:deep(.ProseMirror h2) {
+  font-size: 22px;
+  margin: 14px 0 10px;
+}
+
+:deep(.ProseMirror h3) {
+  font-size: 18px;
+  margin: 12px 0 8px;
+}
+
+:deep(.ProseMirror blockquote) {
+  border-left: 4px solid #6366f1;
+  margin: 12px 0;
+  padding: 6px 12px;
+  color: #4b5563;
+  background: #f8fafc;
+}
+
+:deep(.ProseMirror pre) {
+  background: #0f172a;
+  color: #e2e8f0;
+  padding: 12px 14px;
+  border-radius: 6px;
+  overflow-x: auto;
+}
+
+:deep(.ProseMirror pre code) {
+  color: inherit;
+  font-family: 'Fira Code', 'JetBrains Mono', monospace;
+  font-size: 14px;
+}
+
+:deep(.ProseMirror code) {
+  background: #f1f5f9;
+  border-radius: 4px;
+  padding: 2px 6px;
+  font-family: 'Fira Code', 'JetBrains Mono', monospace;
+  font-size: 14px;
+}
+
+:deep(.ProseMirror table) {
+  border-collapse: collapse;
+  margin: 12px 0;
+  width: 100%;
+}
+
+:deep(.ProseMirror table td,
+.ProseMirror table th) {
+  border: 1px solid #e2e8f0;
+  padding: 8px;
+  min-width: 80px;
+}
+
+:deep(.ProseMirror table th) {
+  background: #f8fafc;
+  font-weight: 600;
+}
+
+:deep(.ProseMirror ul[data-type='taskList']) {
+  list-style: none;
+  padding-left: 0;
+}
+
+:deep(.ProseMirror ul[data-type='taskList'] li) {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+:deep(.ProseMirror a) {
+  color: #2563eb;
+  text-decoration: underline;
+}
+
+:deep(.ProseMirror figure[data-type='figure-image']) {
+  margin: 12px 0;
+  text-align: center;
+}
+
+:deep(.ProseMirror figure[data-type='figure-image'] img) {
   max-width: 100%;
   border-radius: 4px;
   cursor: pointer;
   transition: opacity 0.2s;
 }
 
-:deep(.ProseMirror img:hover) {
+:deep(.ProseMirror figure[data-type='figure-image'] img:hover) {
   opacity: 0.92;
   box-shadow: 0 0 0 2px #2080f0;
+}
+
+:deep(.ProseMirror figure[data-type='figure-image'] figcaption) {
+  margin-top: 6px;
+  font-size: 13px;
+  color: #6b7280;
 }
 </style>

@@ -93,7 +93,7 @@
 </template>
 
 <script setup>
-import { computed, reactive, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, reactive, ref, watch } from 'vue'
 import { NCard, NInput, NButton, NTag, NEmpty, NIcon, NPopover, NDrawer } from 'naive-ui'
 import { noteTypeMap, defaultContentByType } from '@/constants/noteTypes'
 import MarkdownEditor from '@/components/editors/MarkdownEditor.vue'
@@ -136,6 +136,7 @@ const editorReady = ref(true)
 const cardRef = ref(null)
 const overlayCardRef = ref(null)
 const editorShell = ref(null)
+let autoSaveTimer = null
 
 const currentEditor = computed(() => editorMap[localNote.type] || MarkdownEditor)
 const currentTypeLabel = computed(() => noteTypeMap[localNote.type] || '笔记')
@@ -156,6 +157,25 @@ const blurActiveWithinEditor = () => {
   }
 }
 
+const scheduleAutoSave = () => {
+  if (!localNote.id || props.saving) return
+  if (autoSaveTimer) clearTimeout(autoSaveTimer)
+  autoSaveTimer = setTimeout(() => {
+    emit('update-note', {
+      id: localNote.id,
+      payload: {
+        title: localNote.title,
+        content: localNote.content,
+        contentJson: localNote.content,
+        categoryId: props.note?.categoryId ?? null,
+        tagIds: props.note?.tagIds ?? []
+      },
+      silent: true,
+      autosave: true
+    })
+  }, 1200)
+}
+
 watch(
   () => props.note,
   (value) => {
@@ -165,10 +185,12 @@ watch(
       localNote.content = ''
       localNote.type = 0
       localNote.workspaceId = null
+      if (autoSaveTimer) clearTimeout(autoSaveTimer)
       return
     }
 
     if (localNote.id !== value.id) {
+      if (autoSaveTimer) clearTimeout(autoSaveTimer)
       blurActiveWithinEditor()
       editorReady.value = false
       setTimeout(() => {
@@ -201,6 +223,7 @@ const onFieldChange = () => {
     content: localNote.content,
     contentJson: localNote.content
   })
+  scheduleAutoSave()
 }
 
 const handleSave = () => {
@@ -221,6 +244,10 @@ const handleSaveAndClose = () => {
   handleSave()
   showExpanded.value = false
 }
+
+onBeforeUnmount(() => {
+  if (autoSaveTimer) clearTimeout(autoSaveTimer)
+})
 </script>
 
 <style scoped>
