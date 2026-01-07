@@ -37,6 +37,7 @@
 import { computed, nextTick, ref, watch } from 'vue'
 import { NInput, NScrollbar, NButton, useMessage } from 'naive-ui'
 import MarkdownIt from 'markdown-it'
+import markdownItKatex from 'markdown-it-katex'
 import noteApi from '@/api/note'
 import FilePreviewModal from '@/components/FilePreviewModal.vue'
 import { addTokenToAttachmentSrc } from '@/utils/attachmentToken'
@@ -57,7 +58,11 @@ const showPreview = ref(false)
 const previewUrl = ref('')
 const previewType = ref('')
 
-const md = new MarkdownIt({ html: true, linkify: true, breaks: true })
+const md = new MarkdownIt({
+  html: true,
+  linkify: true,
+  breaks: true
+}).use(markdownItKatex)
 
 const currentPreviewMode = computed(() => props.readOnly || previewMode.value)
 const rendered = computed(() =>
@@ -195,5 +200,27 @@ const insertTextAtCursor = (text) => {
   max-width: 100%;
   border-radius: 4px;
   cursor: zoom-in;
+}
+
+.preview-content :deep(pre) {
+  background: #0f172a;
+  color: #e2e8f0;
+  padding: 12px 14px;
+  border-radius: 6px;
+  overflow-x: auto;
+  font-size: 14px;
+}
+
+.preview-content :deep(pre code) {
+  color: inherit;
+  font-family: 'Fira Code', 'JetBrains Mono', monospace;
+}
+
+.preview-content :deep(code) {
+  background: #f1f5f9;
+  color: #0f172a;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-family: 'Fira Code', 'JetBrains Mono', monospace;
 }
 </style>
