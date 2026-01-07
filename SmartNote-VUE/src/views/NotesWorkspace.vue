@@ -191,7 +191,7 @@ const handleSelectNote = (note) => {
   })
 }
 
-const handleUpdateNote = async ({ id, payload, tagsChanged = false }) => {
+const handleUpdateNote = async ({ id, payload, tagsChanged = false, silent = false, autosave = false }) => {
   if (!id || !selectedNote.value) return
   noteSaving.value = true
 
@@ -214,8 +214,22 @@ const handleUpdateNote = async ({ id, payload, tagsChanged = false }) => {
         : []
       await noteApi.updateTags(id, { tagIds })
     }
-    message.success('笔记已保存')
-    await loadNotes(id)
+    if (!silent) {
+      message.success('笔记已保存')
+      await loadNotes(id)
+    } else if (autosave) {
+      notes.value = notes.value.map((item) =>
+        item.id === id
+          ? {
+              ...item,
+              title: body.title ?? item.title,
+              content: body.content ?? item.content,
+              contentJson: body.contentJson ?? item.contentJson,
+              updateTime: new Date().toISOString()
+            }
+          : item
+      )
+    }
   } catch (error) {
     console.error('[NotesWorkspace] handleUpdateNote error:', error)
     message.error(error?.response?.data?.message || '保存失败，请稍后重试。')
