@@ -315,6 +315,9 @@ const MindMapNode = defineComponent({
   grid-template-rows: 100%;
   gap: 16px;
   height: 100%;
+  min-height: 520px;
+  max-height: 100%;
+  overflow: hidden;
 }
 
 .editor-pane {

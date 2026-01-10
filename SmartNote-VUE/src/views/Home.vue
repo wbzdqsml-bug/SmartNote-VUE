@@ -340,7 +340,7 @@ const handleOverviewOpen = (note) => {
   focusSection('notes')
 }
 
-const handleUpdateNote = async ({ id, payload, tagsChanged = false }) => {
+const handleUpdateNote = async ({ id, payload, tagsChanged = false, silent = false, autosave = false }) => {
   if (!id) return
   noteSaving.value = true
   try {
@@ -361,8 +361,22 @@ const handleUpdateNote = async ({ id, payload, tagsChanged = false }) => {
         : []
       await noteApi.updateTags(id, { tagIds })
     }
-    message.success('笔记已保存')
-    await loadNotes(id)
+    if (!silent) {
+      message.success('笔记已保存')
+      await loadNotes(id)
+    } else if (autosave) {
+      notes.value = notes.value.map((item) =>
+        item.id === id
+          ? {
+              ...item,
+              title: body.title ?? item.title,
+              content: body.content ?? item.content,
+              contentJson: body.contentJson ?? item.contentJson,
+              updateTime: new Date().toISOString()
+            }
+          : item
+      )
+    }
   } catch (error) {
     console.error('[Home] handleUpdateNote error:', error)
     if (error?.response?.status === 401) {
