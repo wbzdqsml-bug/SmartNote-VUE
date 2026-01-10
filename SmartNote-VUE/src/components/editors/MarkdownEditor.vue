@@ -37,7 +37,8 @@
 import { computed, nextTick, ref, watch } from 'vue'
 import { NInput, NScrollbar, NButton, useMessage } from 'naive-ui'
 import MarkdownIt from 'markdown-it'
-import markdownItKatex from 'markdown-it-katex'
+import texmath from 'markdown-it-texmath'
+import katex from 'katex'
 import noteApi from '@/api/note'
 import FilePreviewModal from '@/components/FilePreviewModal.vue'
 import { addTokenToAttachmentSrc } from '@/utils/attachmentToken'
@@ -58,14 +59,19 @@ const showPreview = ref(false)
 const previewUrl = ref('')
 const previewType = ref('')
 
+const katexOptions = {
+  throwOnError: false,
+  errorColor: '#cc0000',
+  strict: 'ignore'
+}
+
 const md = new MarkdownIt({
   html: true,
   linkify: true,
   breaks: true
-}).use(markdownItKatex, {
-  throwOnError: false,
-  errorColor: '#cc0000'
 })
+  .use(texmath, { engine: katex, delimiters: 'dollars', katexOptions })
+  .use(texmath, { engine: katex, delimiters: 'brackets', katexOptions })
 
 const currentPreviewMode = computed(() => props.readOnly || previewMode.value)
 const rendered = computed(() =>
