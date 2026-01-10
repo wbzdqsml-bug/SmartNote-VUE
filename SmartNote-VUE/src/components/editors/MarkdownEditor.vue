@@ -62,7 +62,10 @@ const md = new MarkdownIt({
   html: true,
   linkify: true,
   breaks: true
-}).use(markdownItKatex)
+}).use(markdownItKatex, {
+  throwOnError: false,
+  errorColor: '#cc0000'
+})
 
 const currentPreviewMode = computed(() => props.readOnly || previewMode.value)
 const rendered = computed(() =>
@@ -222,5 +225,10 @@ const insertTextAtCursor = (text) => {
   padding: 2px 6px;
   border-radius: 4px;
   font-family: 'Fira Code', 'JetBrains Mono', monospace;
+}
+
+.preview-content :deep(.katex-display) {
+  margin: 12px 0;
+  overflow-x: auto;
 }
 </style>
