@@ -7,10 +7,7 @@
       <div class="section">
         <div class="section-title">操作</div>
         <div class="action-row">
-          <n-button size="small" secondary @click="triggerImport">
-            <template #icon><n-icon :component="CloudUploadOutline" /></template>
-            导入
-          </n-button>
+
         </div>
         <input
           ref="fileInput"

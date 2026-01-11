@@ -1,4 +1,4 @@
-﻿<template>
+﻿﻿<template>
   <div class="note-list">
     <div class="header">
       <n-input
@@ -35,51 +35,55 @@
     </div>
 
     <div class="list-container">
-      <n-spin :show="loading">
-        <n-empty
-          v-if="!filteredNotes.length"
-          :description="emptyDescription"
-          class="empty-state"
-        />
-        <div v-else class="list">
-          <div 
-            v-for="(note, index) in filteredNotes" 
-            :key="note.id" 
-            class="note-item" 
-            :class="{ active: selectedId === note.id }"
-            :style="{ '--note-accent': resolveAccent(note, index) }"
-            @click="$emit('select', note)"
-          >
-            <div class="note-title">{{ note.title || '无标题' }}</div>
-            <div class="note-preview">{{ resolvePreview(note) }}</div>
-            <div class="note-meta">
-              <span class="time">{{ formatDate(note.updateTime) }}</span>
-              <div class="note-badges">
-                <span v-if="note.categoryName" class="badge badge-category">
-                  {{ note.categoryName }}
-                </span>
-                <span
-                  v-for="(tag, tagIndex) in resolveDisplayTags(note)"
-                  :key="tag.id ?? tag.name ?? tagIndex"
-                  class="badge badge-tag"
-                >
-                  {{ resolveTagLabel(tag) }}
-                </span>
-                <span v-if="resolveExtraTags(note) > 0" class="badge badge-more">
-                  +{{ resolveExtraTags(note) }}
-                </span>
+      <n-scrollbar>
+        <n-spin :show="loading">
+          <div class="list-scroll-content">
+            <n-empty
+              v-if="!filteredNotes.length"
+              :description="emptyDescription"
+              class="empty-state"
+            />
+            <div v-else class="list">
+              <div 
+                v-for="(note, index) in filteredNotes" 
+                :key="note.id" 
+                class="note-item" 
+                :class="{ active: selectedId === note.id }"
+                :style="{ '--note-accent': resolveAccent(note, index) }"
+                @click="$emit('select', note)"
+              >
+                <div class="note-title">{{ note.title || '无标题' }}</div>
+                <div class="note-preview">{{ resolvePreview(note) }}</div>
+                <div class="note-meta">
+                  <span class="time">{{ formatDate(note.updateTime) }}</span>
+                  <div class="note-badges">
+                    <span v-if="note.categoryName" class="badge badge-category">
+                      {{ note.categoryName }}
+                    </span>
+                    <span
+                      v-for="(tag, tagIndex) in resolveDisplayTags(note)"
+                      :key="tag.id ?? tag.name ?? tagIndex"
+                      class="badge badge-tag"
+                    >
+                      {{ resolveTagLabel(tag) }}
+                    </span>
+                    <span v-if="resolveExtraTags(note) > 0" class="badge badge-more">
+                      +{{ resolveExtraTags(note) }}
+                    </span>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
-        </div>
-      </n-spin>
+        </n-spin>
+      </n-scrollbar>
     </div>
   </div>
 </template>
 
 <script setup>
 import { computed, ref, watch } from 'vue'
-import { NInput, NIcon, NSelect, NSpin, NEmpty } from 'naive-ui'
+import { NInput, NIcon, NSelect, NSpin, NEmpty, NScrollbar } from 'naive-ui'
 import { Search } from '@vicons/ionicons5'
 import { format } from 'date-fns'
 
@@ -222,8 +226,16 @@ watch(() => props.selectedTagIds, (val) => localTags.value = val)
 
 .list-container {
   flex: 1;
-  overflow-y: auto;
+  overflow: hidden;
+}
+
+.list-container :deep(.n-scrollbar) {
+  height: 100%;
+}
+
+.list-scroll-content {
   padding: 12px 12px 16px;
+  min-height: 100%;
 }
 
 .list {
