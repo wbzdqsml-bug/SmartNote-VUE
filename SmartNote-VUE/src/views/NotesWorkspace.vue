@@ -30,6 +30,7 @@
         :tag-options="tagOptions"
         @update-note="handleUpdateNote"
         @soft-delete="handleSoftDelete"
+        @refresh="refreshNotes"
       />
     </div>
   </div>
