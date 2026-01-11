@@ -141,6 +141,27 @@ let autoSaveTimer = null
 const currentEditor = computed(() => editorMap[localNote.type] || MarkdownEditor)
 const currentTypeLabel = computed(() => noteTypeMap[localNote.type] || '笔记')
 
+const resolveImportedContent = (content, noteType) => {
+  if (content === null || content === undefined) return ''
+  if (typeof content !== 'string') return content
+  const trimmed = content.trim()
+  if (!trimmed.startsWith('{') && !trimmed.startsWith('[')) return content
+  try {
+    const parsed = JSON.parse(trimmed)
+    if (parsed && typeof parsed === 'object') {
+      const markdown = parsed.md ?? parsed.markdown
+      const html = parsed.html ?? parsed.content
+      if (noteType === 0 && typeof markdown === 'string') return markdown
+      if (noteType === 3 && typeof html === 'string') return html
+      if (typeof markdown === 'string') return markdown
+      if (typeof html === 'string') return html
+    }
+  } catch (error) {
+    return content
+  }
+  return content
+}
+
 const blurActiveWithinEditor = () => {
   if (typeof document === 'undefined') return
   const activeElement = document.activeElement
@@ -200,7 +221,8 @@ watch(
         localNote.id = value.id
         localNote.title = value.title || ''
         localNote.type = resolvedType
-        localNote.content = value.contentJson ?? value.content ?? defaultContentByType[resolvedType] ?? ''
+        const rawContent = value.contentJson ?? value.content ?? defaultContentByType[resolvedType] ?? ''
+        localNote.content = resolveImportedContent(rawContent, resolvedType)
         localNote.workspaceId = value.workspaceId ?? value.WorkspaceId ?? null
         editorReady.value = true
       }, 0)
