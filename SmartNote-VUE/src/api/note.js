@@ -33,7 +33,16 @@ const noteApi = {
   deleteAttachment: (attachmentId) => axios.delete(`/notes/attachments/${attachmentId}`),
 
   // 获取附件详情/下载 (通常用于获取元数据，下载建议用 api/resource.js 的 fetchAuthBlob)
-  getAttachmentInfo: (attachmentId) => axios.get(`/notes/attachments/${attachmentId}`)
+  getAttachmentInfo: (attachmentId) => axios.get(`/notes/attachments/${attachmentId}`),
+
+  // 导入笔记
+  importNote: (workspaceId, file) => {
+    const formData = new FormData()
+    formData.append('file', file)
+    return axios.post(`/notes/import?workspaceId=${workspaceId}`, formData, {
+      headers: { 'Content-Type': 'multipart/form-data' }
+    })
+  }
 }
 
 export default noteApi
