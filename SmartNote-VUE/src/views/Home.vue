@@ -24,6 +24,13 @@
             @import="handleImport"
             @open-ai="goToAiSection"
           />
+          <input
+            ref="importInput"
+            type="file"
+            class="import-input"
+            accept=".md,.json,.txt,.html"
+            @change="handleImportFile"
+          />
           <note-overview
             class="section-card note-overview-panel"
             :notes="recentNotes"
@@ -179,6 +186,7 @@ const selectedNote = computed(() =>
 )
 
 const recentNotes = computed(() => notes.value.slice(0, 6))
+const importInput = ref(null)
 
 const resolveResponse = (response, fallback = []) => {
   if (!response) return fallback
@@ -467,7 +475,36 @@ const refreshAll = () => {
 }
 
 const handleImport = () => {
-  message.info('导入功能开发中，敬请期待。')
+  importInput.value?.click()
+}
+
+const resolveImportWorkspaceId = async () => {
+  if (selectedNote.value?.workspaceId || selectedNote.value?.WorkspaceId) {
+    return selectedNote.value.workspaceId ?? selectedNote.value.WorkspaceId
+  }
+  await ensureWorkspaceOptions()
+  return workspaceOptions.value[0]?.value ?? null
+}
+
+const handleImportFile = async (event) => {
+  const file = event.target.files?.[0]
+  if (!file) return
+  const workspaceId = await resolveImportWorkspaceId()
+  if (!workspaceId) {
+    message.warning('请先进入一个工作区')
+    event.target.value = ''
+    return
+  }
+  try {
+    await noteApi.importNote(workspaceId, file)
+    message.success('导入成功')
+    await loadNotes(selectedNoteId.value)
+  } catch (error) {
+    console.error('[Home] importNote error:', error)
+    message.error(error?.response?.data?.message || '导入失败')
+  } finally {
+    event.target.value = ''
+  }
 }
 
 const handleAiAnalyse = (prompt) => {
@@ -540,6 +577,10 @@ onMounted(async () => {
   display: flex;
   flex-direction: column;
   gap: 22px;
+}
+
+.import-input {
+  display: none;
 }
 
 .note-list-row {
