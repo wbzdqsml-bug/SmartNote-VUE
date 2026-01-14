@@ -224,6 +224,20 @@ watch(() => props.selectedTagIds, (val) => localTags.value = val)
   flex: 1;
   overflow-y: auto;
   padding: 12px 12px 16px;
+  scrollbar-gutter: stable;
+}
+
+.list-container::-webkit-scrollbar {
+  width: 8px;
+}
+
+.list-container::-webkit-scrollbar-thumb {
+  background: rgba(100, 116, 139, 0.4);
+  border-radius: 999px;
+}
+
+.list-container::-webkit-scrollbar-track {
+  background: transparent;
 }
 
 .list {
