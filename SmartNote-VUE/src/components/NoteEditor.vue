@@ -291,6 +291,13 @@ onBeforeUnmount(() => {
   overflow: hidden;
 }
 
+.note-editor :deep(.n-card__content) {
+  height: 100%;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
 .title-row {
   display: flex;
   align-items: center;
