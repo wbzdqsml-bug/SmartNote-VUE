@@ -212,20 +212,25 @@ const insertTextAtCursor = (text) => {
 }
 
 .preview-content :deep(pre) {
-  background: #0f172a;
+  background: #0b1220;
   color: #e2e8f0;
-  padding: 12px 14px;
-  border-radius: 6px;
+  padding: 14px 16px;
+  border-radius: 8px;
+  border: 1px solid rgba(148, 163, 184, 0.2);
   overflow-x: auto;
-  font-size: 14px;
+  font-size: 13.5px;
+  line-height: 1.6;
 }
 
 .preview-content :deep(pre code) {
   color: inherit;
   font-family: 'Fira Code', 'JetBrains Mono', monospace;
+  background: transparent;
+  padding: 0;
+  display: block;
 }
 
-.preview-content :deep(code) {
+.preview-content :deep(:not(pre) > code) {
   background: #f1f5f9;
   color: #0f172a;
   padding: 2px 6px;
