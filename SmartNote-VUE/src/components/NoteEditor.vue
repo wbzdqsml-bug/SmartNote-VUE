@@ -280,7 +280,7 @@ onBeforeUnmount(() => {
 }
 .note-editor {
   height: 100%;
-  min-height: clamp(620px, 78vh, 880px);
+  min-height: 0;
   display: flex;
   flex-direction: column;
   border-radius: 12px;
@@ -289,6 +289,13 @@ onBeforeUnmount(() => {
   padding: 16px 18px 14px;
   box-sizing: border-box;
   overflow: hidden;
+}
+
+.note-editor :deep(.n-card__content) {
+  height: 100%;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
 }
 
 .title-row {
@@ -315,11 +322,11 @@ onBeforeUnmount(() => {
   flex: 1;
   display: flex;
   min-height: 0;
-  max-height: calc(100% - 64px);
 }
 
 .dynamic-editor {
   flex: 1;
+  min-height: 0;
   overflow: auto;
   padding: 4px 2px 0;
 }
