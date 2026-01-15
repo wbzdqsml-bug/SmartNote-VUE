@@ -1,4 +1,4 @@
-<template>
+﻿<template>
   <div class="markdown-editor">
     <div class="editor-header" v-if="!readOnly">
       <span class="editor-title">{{ previewMode ? '预览模式' : '编辑模式' }}</span>
