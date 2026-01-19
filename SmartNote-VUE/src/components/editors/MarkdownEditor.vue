@@ -242,4 +242,28 @@ const insertTextAtCursor = (text) => {
   margin: 12px 0;
   overflow-x: auto;
 }
+
+.preview-content :deep(table) {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 12px 0;
+  font-size: 14px;
+}
+
+.preview-content :deep(th),
+.preview-content :deep(td) {
+  border: 1px solid #e2e8f0;
+  padding: 8px 10px;
+  text-align: left;
+  vertical-align: top;
+}
+
+.preview-content :deep(th) {
+  background: #f8fafc;
+  font-weight: 600;
+}
+
+.preview-content :deep(tr:nth-child(even) td) {
+  background: #f1f5f9;
+}
 </style>
