@@ -62,9 +62,9 @@ const items = ref([])
 const loading = ref(false)
 
 const contentTypeOptions = [
-  { label: '全部类型', value: '' },
-  { label: '笔记', value: 'Note' },
-  { label: '模板', value: 'Template' }
+  { label: '全部类型', value: null },
+  { label: '笔记', value: 1 },
+  { label: '模板', value: 2 }
 ]
 
 const normalizeItem = (raw) => ({
@@ -89,7 +89,7 @@ const loadData = async () => {
   try {
     const data = await communityApi.list({
       keyword: keyword.value || undefined,
-      contentType: contentType.value || undefined,
+      contentType: contentType.value ?? undefined,
       page: page.value,
       pageSize: pageSize.value
     })

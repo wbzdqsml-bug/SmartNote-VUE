@@ -55,9 +55,9 @@ const activeTask = ref({})
 const draggedTask = ref(null)
 
 const columns = [
-  { title: '待处理', status: 'Todo' },
-  { title: '进行中', status: 'Doing' },
-  { title: '已完成', status: 'Done' }
+  { title: '待处理', status: 'Todo', statusValue: 0 },
+  { title: '进行中', status: 'Doing', statusValue: 1 },
+  { title: '已完成', status: 'Done', statusValue: 2 }
 ]
 
 const statusOptions = columns.map((column) => ({
@@ -65,23 +65,40 @@ const statusOptions = columns.map((column) => ({
   value: column.status
 }))
 
+const statusValueMap = columns.reduce((acc, column) => {
+  acc[column.status] = column.statusValue
+  return acc
+}, {})
+
+const statusKeyMap = columns.reduce((acc, column) => {
+  acc[column.statusValue] = column.status
+  return acc
+}, {})
+
 const tasksByStatus = reactive({
   Todo: [],
   Doing: [],
   Done: []
 })
 
-const normalizeTask = (raw) => ({
-  id: raw.id ?? raw.Id,
-  workspaceId: raw.workspaceId ?? raw.WorkspaceId,
-  noteId: raw.noteId ?? raw.NoteId,
-  title: raw.title ?? raw.Title,
-  description: raw.description ?? raw.Description,
-  status: raw.status ?? raw.Status ?? 'Todo',
-  sortOrder: raw.sortOrder ?? raw.SortOrder ?? 0,
-  startAt: raw.startAt ?? raw.StartAt,
-  dueAt: raw.dueAt ?? raw.DueAt
-})
+const normalizeTask = (raw) => {
+  const rawStatus = raw.status ?? raw.Status
+  const status =
+    typeof rawStatus === 'number'
+      ? statusKeyMap[rawStatus] ?? 'Todo'
+      : rawStatus ?? 'Todo'
+  return {
+    id: raw.id ?? raw.Id,
+    workspaceId: raw.workspaceId ?? raw.WorkspaceId,
+    noteId: raw.noteId ?? raw.NoteId,
+    title: raw.title ?? raw.Title,
+    description: raw.description ?? raw.Description,
+    status,
+    sortOrder: raw.sortOrder ?? raw.SortOrder ?? 0,
+    startAt: raw.startAt ?? raw.StartAt,
+    dueAt: raw.dueAt ?? raw.DueAt
+  }
+}
 
 const loadWorkspaces = async () => {
   const data = await workspaceApi.list()
@@ -126,7 +143,7 @@ const handleSubmit = async (payload) => {
     NoteId: activeTask.value?.noteId ?? null,
     Title: payload.title,
     Description: payload.description,
-    Status: status,
+    Status: statusValueMap[status] ?? 0,
     SortOrder: activeTask.value?.sortOrder ?? tasksByStatus[status].length + 1,
     StartAt: payload.startAt ? new Date(payload.startAt).toISOString() : null,
     DueAt: payload.dueAt ? new Date(payload.dueAt).toISOString() : null
@@ -186,7 +203,7 @@ const persistSort = async () => {
       task.sortOrder = index + 1
       items.push({
         TaskId: task.id,
-        Status: column.status,
+        Status: statusValueMap[column.status] ?? 0,
         SortOrder: task.sortOrder
       })
     })

@@ -1,6 +1,6 @@
 import apiClient from '@/api/apiClient'
 
-const basePath = '/api/community'
+const basePath = '/community'
 
 const list = (params = {}) => apiClient.get(basePath, { params })
 

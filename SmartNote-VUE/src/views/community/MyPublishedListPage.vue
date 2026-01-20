@@ -49,10 +49,10 @@ const items = ref([])
 const loading = ref(false)
 
 const statusOptions = [
-  { label: '全部状态', value: '' },
-  { label: '草稿', value: 'Draft' },
-  { label: '已发布', value: 'Published' },
-  { label: '已下架', value: 'Banned' }
+  { label: '全部状态', value: null },
+  { label: '草稿', value: 0 },
+  { label: '已发布', value: 1 },
+  { label: '已下架', value: 2 }
 ]
 
 const normalizeItem = (raw) => ({
@@ -76,7 +76,7 @@ const loadData = async () => {
   loading.value = true
   try {
     const data = await communityApi.mine({
-      status: status.value || undefined,
+      status: status.value ?? undefined,
       page: page.value,
       pageSize: pageSize.value
     })

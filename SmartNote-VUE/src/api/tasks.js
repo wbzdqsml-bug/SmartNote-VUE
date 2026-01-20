@@ -1,6 +1,6 @@
 import apiClient from '@/api/apiClient'
 
-const basePath = '/api/tasks'
+const basePath = '/tasks'
 
 const list = (params = {}) => apiClient.get(basePath, { params })
 

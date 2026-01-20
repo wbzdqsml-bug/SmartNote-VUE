@@ -42,8 +42,11 @@ const resolveTypeLabel = (value) => {
 }
 
 const resolveStatusLabel = (value) => {
-  if (!value) return '公开'
+  if (value === null || value === undefined || value === '') return '公开'
   const mapping = {
+    0: '草稿',
+    1: '已发布',
+    2: '已下架',
     Draft: '草稿',
     Published: '已发布',
     Banned: '已下架'
@@ -52,8 +55,8 @@ const resolveStatusLabel = (value) => {
 }
 
 const resolveStatusClass = (value) => {
-  if (value === 'Banned') return 'danger'
-  if (value === 'Draft') return 'warning'
+  if (value === 2 || value === 'Banned') return 'danger'
+  if (value === 0 || value === 'Draft') return 'warning'
   return 'success'
 }
 
