@@ -63,13 +63,14 @@
 
 <script setup>
 import { onMounted, ref, watch } from 'vue'
-import { NSelect, NPagination, NButton, NModal, NForm, NFormItem, NInput } from 'naive-ui'
+import { NSelect, NPagination, NButton, NModal, NForm, NFormItem, NInput, useMessage } from 'naive-ui'
 import { useRouter } from 'vue-router'
 import communityApi from '@/api/community'
 import noteApi from '@/api/note'
 import CommunityCard from '@/components/community/CommunityCard.vue'
 
 const router = useRouter()
+const message = useMessage()
 
 const status = ref('')
 const page = ref(1)
@@ -131,12 +132,20 @@ const openPublishModal = async () => {
   publishModalVisible.value = true
 }
 
+const resolveContentTypeForPublish = (note) => {
+  const rawType = note?.type ?? note?.Type ?? 0
+  if (typeof rawType === 'number') return rawType
+  if (rawType === 'Note' || rawType === 'NOTE') return 0
+  if (rawType === 'Template' || rawType === 'TEMPLATE') return 1
+  return 0
+}
+
 const resolveNotePayload = (noteId) => {
   const note = notesCache.value.find((item) => (item.id ?? item.Id) === noteId)
   if (!note) return null
   return {
     NoteId: note.id ?? note.Id,
-    ContentType: note.type ?? note.Type ?? 0,
+    ContentType: resolveContentTypeForPublish(note),
     TitleSnapshot: note.title ?? note.Title ?? '未命名笔记',
     ContentSnapshotJson: note.contentJson ?? note.ContentJson ?? note.content ?? note.Content ?? ''
   }
@@ -145,13 +154,17 @@ const resolveNotePayload = (noteId) => {
 const confirmPublish = async () => {
   if (!publishForm.value.noteId) return
   const payload = resolveNotePayload(publishForm.value.noteId)
-  if (!payload) return
+  if (!payload) {
+    message.warning('请选择要发布的笔记')
+    return
+  }
   const titleSnapshot = publishForm.value.titleSnapshot?.trim()
   const contentSnapshot = publishForm.value.contentSnapshot
   await communityApi.publish({
-    ...payload,
-    TitleSnapshot: titleSnapshot || payload.TitleSnapshot,
-    ContentSnapshotJson: contentSnapshot || payload.ContentSnapshotJson
+    NoteId: payload.NoteId,
+    ContentType: payload.ContentType,
+    TitleSnapshot: titleSnapshot || null,
+    ContentSnapshotJson: contentSnapshot || null
   })
   publishModalVisible.value = false
   await loadData()

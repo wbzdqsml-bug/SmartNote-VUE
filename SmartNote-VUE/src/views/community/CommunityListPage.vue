@@ -15,7 +15,6 @@
         />
         <n-select v-model:value="contentType" :options="contentTypeOptions" size="large" />
         <n-button type="primary" size="large" @click="loadData">发现内容</n-button>
-        <n-button type="default" size="large" @click="openPublishModal">发布笔记</n-button>
       </div>
     </header>
 
@@ -42,41 +41,14 @@
         @update:page-size="handlePageSizeChange"
       />
     </div>
-
-    <n-modal v-model:show="publishModalVisible" preset="card" title="发布笔记到社区">
-      <n-form :model="publishForm" label-placement="top">
-        <n-form-item label="选择笔记">
-          <n-select
-            v-model:value="publishForm.noteId"
-            :options="noteOptions"
-            placeholder="请选择要发布的笔记"
-          />
-        </n-form-item>
-        <n-form-item label="标题快照">
-          <n-input v-model:value="publishForm.titleSnapshot" />
-        </n-form-item>
-        <n-form-item label="内容快照">
-          <n-input
-            v-model:value="publishForm.contentSnapshot"
-            type="textarea"
-            :autosize="{ minRows: 4 }"
-          />
-        </n-form-item>
-      </n-form>
-      <div class="modal-actions">
-        <n-button @click="publishModalVisible = false">取消</n-button>
-        <n-button type="primary" @click="confirmPublish">确认发布</n-button>
-      </div>
-    </n-modal>
   </div>
 </template>
 
 <script setup>
-import { onMounted, ref, watch } from 'vue'
-import { NInput, NButton, NSelect, NPagination, NModal, NForm, NFormItem } from 'naive-ui'
+import { onMounted, ref } from 'vue'
+import { NInput, NButton, NSelect, NPagination } from 'naive-ui'
 import { useRouter } from 'vue-router'
 import communityApi from '@/api/community'
-import noteApi from '@/api/note'
 import CommunityCard from '@/components/community/CommunityCard.vue'
 
 const router = useRouter()
@@ -88,14 +60,6 @@ const pageSize = ref(12)
 const pageCount = ref(1)
 const items = ref([])
 const loading = ref(false)
-const publishModalVisible = ref(false)
-const noteOptions = ref([])
-const notesCache = ref([])
-const publishForm = ref({
-  noteId: null,
-  titleSnapshot: '',
-  contentSnapshot: ''
-})
 
 const contentTypeOptions = [
   { label: '全部类型', value: null },
@@ -120,53 +84,6 @@ const openDetail = (item) => {
   router.push({ path: `/community/${item.id}` })
 }
 
-const loadNotes = async () => {
-  if (notesCache.value.length) return
-  const response = await noteApi.list()
-  const list = response?.data ?? response ?? []
-  notesCache.value = Array.isArray(list) ? list : []
-  noteOptions.value = notesCache.value.map((note) => ({
-    label: note.title || note.Title || '未命名笔记',
-    value: note.id ?? note.Id
-  }))
-}
-
-const openPublishModal = async () => {
-  await loadNotes()
-  publishForm.value = {
-    noteId: noteOptions.value[0]?.value ?? null,
-    titleSnapshot: '',
-    contentSnapshot: ''
-  }
-  publishModalVisible.value = true
-}
-
-const resolveNotePayload = (noteId) => {
-  const note = notesCache.value.find((item) => (item.id ?? item.Id) === noteId)
-  if (!note) return null
-  return {
-    NoteId: note.id ?? note.Id,
-    ContentType: note.type ?? note.Type ?? 0,
-    TitleSnapshot: note.title ?? note.Title ?? '未命名笔记',
-    ContentSnapshotJson: note.contentJson ?? note.ContentJson ?? note.content ?? note.Content ?? ''
-  }
-}
-
-const confirmPublish = async () => {
-  if (!publishForm.value.noteId) return
-  const payload = resolveNotePayload(publishForm.value.noteId)
-  if (!payload) return
-  const titleSnapshot = publishForm.value.titleSnapshot?.trim()
-  const contentSnapshot = publishForm.value.contentSnapshot
-  await communityApi.publish({
-    ...payload,
-    TitleSnapshot: titleSnapshot || payload.TitleSnapshot,
-    ContentSnapshotJson: contentSnapshot || payload.ContentSnapshotJson
-  })
-  publishModalVisible.value = false
-  await loadData()
-}
-
 const loadData = async () => {
   loading.value = true
   try {
@@ -188,16 +105,6 @@ const handlePageSizeChange = () => {
   page.value = 1
   loadData()
 }
-
-watch(
-  () => publishForm.value.noteId,
-  (noteId) => {
-    const payload = noteId ? resolveNotePayload(noteId) : null
-    if (!payload) return
-    publishForm.value.titleSnapshot = payload.TitleSnapshot
-    publishForm.value.contentSnapshot = payload.ContentSnapshotJson
-  }
-)
 
 onMounted(loadData)
 </script>
@@ -233,7 +140,7 @@ onMounted(loadData)
 
 .hero-actions {
   display: grid;
-  grid-template-columns: 1fr 180px 140px 140px;
+  grid-template-columns: 1fr 180px 140px;
   gap: 12px;
 }
 
@@ -272,12 +179,5 @@ onMounted(loadData)
   .hero-actions {
     grid-template-columns: 1fr;
   }
-}
-
-.modal-actions {
-  display: flex;
-  justify-content: flex-end;
-  gap: 12px;
-  margin-top: 16px;
 }
 </style>
