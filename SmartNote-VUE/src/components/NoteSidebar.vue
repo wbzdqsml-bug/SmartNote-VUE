@@ -5,6 +5,22 @@
     </div>
     <template v-else-if="sidebarReady">
       <div class="section">
+        <div class="section-title">操作</div>
+        <div class="action-row">
+
+        </div>
+        <input
+          ref="fileInput"
+          type="file"
+          class="import-input"
+          accept=".md,.json,.txt,.html"
+          @change="handleImportFile"
+        />
+      </div>
+
+      <n-divider />
+
+      <div class="section">
         <div class="section-title">信息</div>
         <div class="info-item">
           <span class="label">创建于</span>
@@ -111,6 +127,7 @@
 
 <script setup>
 import { computed, ref, watch } from 'vue'
+import { useRoute } from 'vue-router'
 import { NEmpty, NDivider, NSpace, NTag, NButton, NList, NListItem, NIcon, NSpin, NUpload, NSelect, useMessage } from 'naive-ui'
 import { CloudUploadOutline, DocumentAttachOutline, TrashOutline } from '@vicons/ionicons5'
 import { format } from 'date-fns'
@@ -130,14 +147,16 @@ const props = defineProps({
   }
 })
 
-const emit = defineEmits(['update-note', 'soft-delete'])
+const emit = defineEmits(['update-note', 'soft-delete', 'refresh'])
 const message = useMessage()
+const route = useRoute()
 
 const attachments = ref([])
 const loadingAttachments = ref(false)
 const localCategoryId = ref(null)
 const localTagIds = ref([])
 const sidebarReady = ref(true)
+const fileInput = ref(null)
 
 const formatDate = (ts) => ts ? format(new Date(ts), 'yyyy-MM-dd HH:mm') : '-'
 
@@ -190,6 +209,36 @@ const handleUpload = async ({ file }) => {
     loadAttachments()
   } catch (e) {
     message.error('上传失败')
+  }
+}
+
+const triggerImport = () => {
+  fileInput.value?.click()
+}
+
+const resolveWorkspaceId = () => {
+  return props.note?.workspaceId ?? props.note?.WorkspaceId ?? route.params?.workspaceId ?? null
+}
+
+const handleImportFile = async (event) => {
+  const file = event.target.files?.[0]
+  if (!file) return
+  const workspaceId = resolveWorkspaceId()
+  if (!workspaceId) {
+    message.warning('请先进入一个工作区')
+    event.target.value = ''
+    return
+  }
+
+  try {
+    await noteApi.importNote(workspaceId, file)
+    message.success('导入成功')
+    emit('refresh')
+  } catch (e) {
+    console.error(e)
+    message.error(e?.response?.data?.message || '导入失败')
+  } finally {
+    event.target.value = ''
   }
 }
 
@@ -258,6 +307,8 @@ watch(
 .empty-tip { display: flex; align-items: center; justify-content: center; height: 100%; color: #999; }
 .section { margin-bottom: 16px; }
 .section-title { font-weight: 600; margin-bottom: 8px; display: flex; align-items: center; justify-content: space-between; }
+.action-row { display: flex; align-items: center; gap: 8px; }
+.import-input { display: none; }
 .section :deep(.n-select) { width: 100%; }
 .info-item { display: flex; justify-content: space-between; font-size: 13px; margin-bottom: 6px; }
 .label { color: #666; }
