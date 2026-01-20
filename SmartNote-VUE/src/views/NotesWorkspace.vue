@@ -30,6 +30,7 @@
         :tag-options="tagOptions"
         @update-note="handleUpdateNote"
         @soft-delete="handleSoftDelete"
+        @refresh="refreshNotes"
       />
     </div>
   </div>
@@ -296,7 +297,7 @@ watch(
 <style scoped>
 .notes-page {
   width: 100%;
-  height: 100%;
+  height: 100vh;
   padding: 16px; /* A bit of padding for the whole page */
   box-sizing: border-box;
   background-color: #f8fafc; /* A slightly off-white background */
@@ -309,11 +310,12 @@ watch(
   gap: 16px;
   height: 100%;
   width: 100%;
+  min-height: 0;
 }
 
 .note-panel {
   height: 100%;
-  min-height: 480px;
+  min-height: 0;
   overflow: hidden;
   display: flex;
   flex-direction: column;

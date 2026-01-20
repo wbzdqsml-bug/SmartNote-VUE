@@ -320,6 +320,7 @@ onBeforeUnmount(() => {
 
 .dynamic-editor {
   flex: 1;
+  min-height: 0;
   overflow: auto;
   padding: 4px 2px 0;
 }
