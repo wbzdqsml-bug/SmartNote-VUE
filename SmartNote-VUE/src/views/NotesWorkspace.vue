@@ -81,11 +81,33 @@ const normaliseId = (value) => {
   return Number.isNaN(num) ? value : num
 }
 
+const resolveImportedContent = (content, noteType) => {
+  if (content === null || content === undefined) return ''
+  if (typeof content !== 'string') return content
+  const trimmed = content.trim()
+  if (!trimmed.startsWith('{') && !trimmed.startsWith('[')) return content
+  try {
+    const parsed = JSON.parse(trimmed)
+    if (parsed && typeof parsed === 'object') {
+      const markdown = parsed.md ?? parsed.markdown
+      const html = parsed.html ?? parsed.content
+      if (noteType === 0 && typeof markdown === 'string') return markdown
+      if (noteType === 3 && typeof html === 'string') return html
+      if (typeof markdown === 'string') return markdown
+      if (typeof html === 'string') return html
+    }
+  } catch (error) {
+    return content
+  }
+  return content
+}
+
 const normaliseNote = (raw) => {
   if (!raw || typeof raw !== 'object') return null
   const id = normaliseId(raw.id ?? raw.noteId ?? raw.noteID)
   const typeValue = Number.isInteger(raw.type) ? raw.type : Number(raw.type ?? 0)
-  const content = raw.contentJson ?? raw.ContentJson ?? raw.content ?? ''
+  const rawContent = raw.contentJson ?? raw.ContentJson ?? raw.content ?? ''
+  const content = resolveImportedContent(rawContent, Number.isNaN(typeValue) ? 0 : typeValue)
   const createdAt =
     raw.createTime || raw.CreateTime || raw.createdAt || raw.created_time || raw.created_at || null
   const updatedAt =
@@ -191,7 +213,7 @@ const handleSelectNote = (note) => {
   })
 }
 
-const handleUpdateNote = async ({ id, payload, tagsChanged = false }) => {
+const handleUpdateNote = async ({ id, payload, tagsChanged = false, silent = false, autosave = false }) => {
   if (!id || !selectedNote.value) return
   noteSaving.value = true
 
@@ -214,8 +236,22 @@ const handleUpdateNote = async ({ id, payload, tagsChanged = false }) => {
         : []
       await noteApi.updateTags(id, { tagIds })
     }
-    message.success('笔记已保存')
-    await loadNotes(id)
+    if (!silent) {
+      message.success('笔记已保存')
+      await loadNotes(id)
+    } else if (autosave) {
+      notes.value = notes.value.map((item) =>
+        item.id === id
+          ? {
+              ...item,
+              title: body.title ?? item.title,
+              content: body.content ?? item.content,
+              contentJson: body.contentJson ?? item.contentJson,
+              updateTime: new Date().toISOString()
+            }
+          : item
+      )
+    }
   } catch (error) {
     console.error('[NotesWorkspace] handleUpdateNote error:', error)
     message.error(error?.response?.data?.message || '保存失败，请稍后重试。')
