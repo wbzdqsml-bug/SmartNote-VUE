@@ -54,13 +54,17 @@ const routeMap = {
   home: '/home',
   notes: '/notes',
   analysis: '/analysis',
+  community: '/community',
   chat: '/chat',
   ai: '/ai',
   graph: '/graph',
   workspace: '/workspace',
   recycle: '/recycle',
   tags: '/tags',
-  profile: '/profile'
+  profile: '/profile',
+  tasks: '/tasks/board',
+  'tasks-board': '/tasks/board',
+  'tasks-calendar': '/tasks/calendar'
 }
 
 const activeKey = computed(() => route.meta.sidebarKey || route.name || 'home')

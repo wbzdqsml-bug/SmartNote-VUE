@@ -5,6 +5,13 @@
       @import="handleImport"
       @open-ai="goToAiPage"
     />
+    <input
+      ref="importInput"
+      type="file"
+      class="import-input"
+      accept=".md,.json,.txt,.html"
+      @change="handleImportFile"
+    />
 
     <div class="overview-grid">
       <n-card class="overview-card" title="全部笔记">
@@ -32,6 +39,7 @@ import { format } from 'date-fns'
 import QuickActions from '@/components/QuickActions.vue'
 import NoteOverview from '@/components/NoteOverview.vue'
 import noteApi from '@/api/note'
+import workspaceApi from '@/api/workspace'
 import { noteTypeMap } from '@/constants/noteTypes'
 
 const router = useRouter()
@@ -40,6 +48,8 @@ const message = useMessage()
 const notes = ref([])
 const loading = ref(false)
 const searchTerm = ref('')
+const importInput = ref(null)
+const workspaceOptions = ref([])
 
 const recentNotes = computed(() => notes.value.slice(0, 6))
 const filteredNotes = computed(() => {
@@ -116,7 +126,45 @@ const goToAiPage = () => {
 }
 
 const handleImport = () => {
-  message.info('导入功能开发中，敬请期待。')
+  importInput.value?.click()
+}
+
+const loadWorkspaceOptions = async () => {
+  try {
+    const response = await workspaceApi.list()
+    const data = response.data?.data ?? response.data ?? []
+    workspaceOptions.value = Array.isArray(data)
+      ? data.map((item) => ({
+          label: item.name || item.title || item.workspaceName || '工作区',
+          value: item.id ?? item.Id ?? item.workspaceId ?? item.WorkspaceId
+        }))
+      : []
+  } catch (error) {
+    console.error('[Overview] loadWorkspaceOptions error:', error)
+  }
+}
+
+const resolveWorkspaceId = () => workspaceOptions.value[0]?.value ?? null
+
+const handleImportFile = async (event) => {
+  const file = event.target.files?.[0]
+  if (!file) return
+  const workspaceId = resolveWorkspaceId()
+  if (!workspaceId) {
+    message.warning('请先进入一个工作区')
+    event.target.value = ''
+    return
+  }
+  try {
+    await noteApi.importNote(workspaceId, file)
+    message.success('导入成功')
+    await loadNotes()
+  } catch (error) {
+    console.error('[Overview] importNote error:', error)
+    message.error(error?.response?.data?.message || '导入失败')
+  } finally {
+    event.target.value = ''
+  }
 }
 
 const formatTime = (value) => {
@@ -139,6 +187,7 @@ const openCreate = () => {
 
 onMounted(() => {
   loadNotes()
+  loadWorkspaceOptions()
 })
 </script>
 
@@ -147,6 +196,10 @@ onMounted(() => {
   display: flex;
   flex-direction: column;
   gap: 18px;
+}
+
+.import-input {
+  display: none;
 }
 
 .search-bar {

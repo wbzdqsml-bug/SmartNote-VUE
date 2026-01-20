@@ -159,6 +159,61 @@ const routes = [
           title: '个人资料',
           subtitle: '查看并更新账号信息'
         }
+      },
+      {
+        path: 'community',
+        name: 'community',
+        component: () => import('@/views/community/CommunityListPage.vue'),
+        meta: {
+          requiresAuth: true,
+          sidebarKey: 'community',
+          title: '知识社区',
+          subtitle: '分享与发现创作灵感'
+        }
+      },
+      {
+        path: 'community/mine',
+        name: 'community-mine',
+        component: () => import('@/views/community/MyPublishedListPage.vue'),
+        meta: {
+          requiresAuth: true,
+          sidebarKey: 'community',
+          title: '我的发布',
+          subtitle: '管理个人社区内容'
+        }
+      },
+      {
+        path: 'community/:id',
+        name: 'community-detail',
+        component: () => import('@/views/community/CommunityDetailPage.vue'),
+        meta: {
+          requiresAuth: true,
+          sidebarKey: 'community',
+          title: '社区详情',
+          subtitle: '浏览内容详情与评论'
+        }
+      },
+      {
+        path: 'tasks/board',
+        name: 'tasks-board',
+        component: () => import('@/views/tasks/TaskBoardPage.vue'),
+        meta: {
+          requiresAuth: true,
+          sidebarKey: 'tasks-board',
+          title: '任务看板',
+          subtitle: '拖拽管理任务进度'
+        }
+      },
+      {
+        path: 'tasks/calendar',
+        name: 'tasks-calendar',
+        component: () => import('@/views/tasks/TaskCalendarPage.vue'),
+        meta: {
+          requiresAuth: true,
+          sidebarKey: 'tasks-calendar',
+          title: '日程管理',
+          subtitle: '按时间范围查看任务'
+        }
       }
     ]
   }
