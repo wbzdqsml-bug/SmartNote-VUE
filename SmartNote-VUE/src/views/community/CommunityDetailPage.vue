@@ -124,8 +124,10 @@ const publishForm = ref({
   contentSnapshot: ''
 })
 
+const resolvedNoteId = computed(() => (detail.value?.noteId ?? Number(route.query.noteId)) || null)
+
 const canPublish = computed(() => {
-  if (!detail.value?.noteId) return false
+  if (!resolvedNoteId.value) return false
   const status = detail.value?.status
   return status === 0 || status === 'Draft' || status === null || status === undefined
 })
@@ -169,7 +171,7 @@ const loadDetail = async () => {
   const data = await communityApi.detail(route.params.id)
   detail.value = {
     id: data.id ?? data.Id,
-    noteId: data.noteId ?? data.NoteId,
+    noteId: data.noteId ?? data.NoteId ?? (route.query.noteId ? Number(route.query.noteId) : null),
     title: data.title ?? data.Title,
     contentJson: data.contentJson ?? data.ContentJson,
     contentType: data.contentType ?? data.ContentType,
@@ -298,9 +300,9 @@ const openPublishModal = () => {
 }
 
 const confirmPublish = async () => {
-  if (!detail.value?.noteId) return
+  if (!resolvedNoteId.value) return
   await communityApi.publish({
-    NoteId: detail.value.noteId,
+    NoteId: resolvedNoteId.value,
     ContentType: resolveContentTypeValue(detail.value.contentType),
     TitleSnapshot: publishForm.value.titleSnapshot,
     ContentSnapshotJson: publishForm.value.contentSnapshot
