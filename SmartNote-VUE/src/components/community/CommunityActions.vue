@@ -6,6 +6,9 @@
     <button class="action-btn" :class="{ active: favorited }" @click="$emit('toggle-favorite')">
       ⭐ 收藏
     </button>
+    <button v-if="showPublish" class="action-btn publish" @click="$emit('publish')">
+      🚀 发布
+    </button>
     <button class="action-btn clone" @click="$emit('clone')">
       🔁 克隆到工作区
     </button>
@@ -15,10 +18,11 @@
 <script setup>
 defineProps({
   liked: Boolean,
-  favorited: Boolean
+  favorited: Boolean,
+  showPublish: Boolean
 })
 
-defineEmits(['toggle-like', 'toggle-favorite', 'clone'])
+defineEmits(['toggle-like', 'toggle-favorite', 'clone', 'publish'])
 </script>
 
 <style scoped>
@@ -47,6 +51,11 @@ defineEmits(['toggle-like', 'toggle-favorite', 'clone'])
 .action-btn.clone {
   background: rgba(16, 185, 129, 0.16);
   color: #047857;
+}
+
+.action-btn.publish {
+  background: rgba(14, 165, 233, 0.16);
+  color: #0369a1;
 }
 
 .action-btn:hover {

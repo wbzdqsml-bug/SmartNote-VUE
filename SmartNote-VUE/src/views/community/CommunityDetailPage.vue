@@ -12,8 +12,10 @@
       <community-actions
         :liked="liked"
         :favorited="favorited"
+        :show-publish="canPublish"
         @toggle-like="toggleLike"
         @toggle-favorite="toggleFavorite"
+        @publish="openPublishModal"
         @clone="openCloneModal"
       />
     </section>
@@ -65,6 +67,25 @@
         <n-button type="primary" @click="confirmClone">确认克隆</n-button>
       </div>
     </n-modal>
+
+    <n-modal v-model:show="publishModalVisible" preset="card" title="发布到社区">
+      <n-form :model="publishForm" label-placement="top">
+        <n-form-item label="标题快照">
+          <n-input v-model:value="publishForm.titleSnapshot" />
+        </n-form-item>
+        <n-form-item label="内容快照">
+          <n-input
+            v-model:value="publishForm.contentSnapshot"
+            type="textarea"
+            :autosize="{ minRows: 4 }"
+          />
+        </n-form-item>
+      </n-form>
+      <div class="modal-actions">
+        <n-button @click="publishModalVisible = false">取消</n-button>
+        <n-button type="primary" @click="confirmPublish">确认发布</n-button>
+      </div>
+    </n-modal>
   </div>
 </template>
 
@@ -95,6 +116,18 @@ const workspaceOptions = ref([])
 const cloneForm = ref({
   workspaceId: null,
   title: ''
+})
+
+const publishModalVisible = ref(false)
+const publishForm = ref({
+  titleSnapshot: '',
+  contentSnapshot: ''
+})
+
+const canPublish = computed(() => {
+  if (!detail.value?.noteId) return false
+  const status = detail.value?.status
+  return status === 0 || status === 'Draft' || status === null || status === undefined
 })
 
 const renderedContent = computed(() => {
@@ -136,6 +169,7 @@ const loadDetail = async () => {
   const data = await communityApi.detail(route.params.id)
   detail.value = {
     id: data.id ?? data.Id,
+    noteId: data.noteId ?? data.NoteId,
     title: data.title ?? data.Title,
     contentJson: data.contentJson ?? data.ContentJson,
     contentType: data.contentType ?? data.ContentType,
@@ -244,6 +278,35 @@ const confirmClone = async () => {
   if (newId) {
     router.push({ path: '/notes', query: { focus: newId } })
   }
+}
+
+const resolveContentTypeValue = (value) => {
+  if (typeof value === 'number') return value
+  if (value === 'Note' || value === 'NOTE') return 1
+  if (value === 'Template' || value === 'TEMPLATE') return 2
+  return 0
+}
+
+const openPublishModal = () => {
+  publishForm.value.titleSnapshot = detail.value?.title || ''
+  publishForm.value.contentSnapshot = detail.value?.contentJson
+    ? typeof detail.value.contentJson === 'string'
+      ? detail.value.contentJson
+      : JSON.stringify(detail.value.contentJson)
+    : ''
+  publishModalVisible.value = true
+}
+
+const confirmPublish = async () => {
+  if (!detail.value?.noteId) return
+  await communityApi.publish({
+    NoteId: detail.value.noteId,
+    ContentType: resolveContentTypeValue(detail.value.contentType),
+    TitleSnapshot: publishForm.value.titleSnapshot,
+    ContentSnapshotJson: publishForm.value.contentSnapshot
+  })
+  publishModalVisible.value = false
+  await loadDetail()
 }
 
 onMounted(async () => {
