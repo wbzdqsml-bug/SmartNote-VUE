@@ -24,6 +24,13 @@
             @import="handleImport"
             @open-ai="goToAiSection"
           />
+          <input
+            ref="importInput"
+            type="file"
+            class="import-input"
+            accept=".md,.json,.txt,.html"
+            @change="handleImportFile"
+          />
           <note-overview
             class="section-card note-overview-panel"
             :notes="recentNotes"
@@ -179,6 +186,7 @@ const selectedNote = computed(() =>
 )
 
 const recentNotes = computed(() => notes.value.slice(0, 6))
+const importInput = ref(null)
 
 const resolveResponse = (response, fallback = []) => {
   if (!response) return fallback
@@ -195,11 +203,33 @@ const normaliseId = (value) => {
   return Number.isNaN(num) ? value : num
 }
 
+const resolveImportedContent = (content, noteType) => {
+  if (content === null || content === undefined) return ''
+  if (typeof content !== 'string') return content
+  const trimmed = content.trim()
+  if (!trimmed.startsWith('{') && !trimmed.startsWith('[')) return content
+  try {
+    const parsed = JSON.parse(trimmed)
+    if (parsed && typeof parsed === 'object') {
+      const markdown = parsed.md ?? parsed.markdown
+      const html = parsed.html ?? parsed.content
+      if (noteType === 0 && typeof markdown === 'string') return markdown
+      if (noteType === 3 && typeof html === 'string') return html
+      if (typeof markdown === 'string') return markdown
+      if (typeof html === 'string') return html
+    }
+  } catch (error) {
+    return content
+  }
+  return content
+}
+
 const normaliseNote = (raw) => {
   if (!raw || typeof raw !== 'object') return null
   const id = normaliseId(raw.id ?? raw.noteId ?? raw.noteID)
   const typeValue = Number.isInteger(raw.type) ? raw.type : Number(raw.type ?? 0)
-  const content = raw.contentJson ?? raw.ContentJson ?? raw.content ?? ''
+  const rawContent = raw.contentJson ?? raw.ContentJson ?? raw.content ?? ''
+  const content = resolveImportedContent(rawContent, Number.isNaN(typeValue) ? 0 : typeValue)
   const preview = raw.preview ?? ''
   const createdAt =
     raw.createTime || raw.CreateTime || raw.createdAt || raw.created_time || raw.created_at || null
@@ -340,7 +370,7 @@ const handleOverviewOpen = (note) => {
   focusSection('notes')
 }
 
-const handleUpdateNote = async ({ id, payload, tagsChanged = false }) => {
+const handleUpdateNote = async ({ id, payload, tagsChanged = false, silent = false, autosave = false }) => {
   if (!id) return
   noteSaving.value = true
   try {
@@ -361,8 +391,22 @@ const handleUpdateNote = async ({ id, payload, tagsChanged = false }) => {
         : []
       await noteApi.updateTags(id, { tagIds })
     }
-    message.success('笔记已保存')
-    await loadNotes(id)
+    if (!silent) {
+      message.success('笔记已保存')
+      await loadNotes(id)
+    } else if (autosave) {
+      notes.value = notes.value.map((item) =>
+        item.id === id
+          ? {
+              ...item,
+              title: body.title ?? item.title,
+              content: body.content ?? item.content,
+              contentJson: body.contentJson ?? item.contentJson,
+              updateTime: new Date().toISOString()
+            }
+          : item
+      )
+    }
   } catch (error) {
     console.error('[Home] handleUpdateNote error:', error)
     if (error?.response?.status === 401) {
@@ -431,7 +475,36 @@ const refreshAll = () => {
 }
 
 const handleImport = () => {
-  message.info('导入功能开发中，敬请期待。')
+  importInput.value?.click()
+}
+
+const resolveImportWorkspaceId = async () => {
+  if (selectedNote.value?.workspaceId || selectedNote.value?.WorkspaceId) {
+    return selectedNote.value.workspaceId ?? selectedNote.value.WorkspaceId
+  }
+  await ensureWorkspaceOptions()
+  return workspaceOptions.value[0]?.value ?? null
+}
+
+const handleImportFile = async (event) => {
+  const file = event.target.files?.[0]
+  if (!file) return
+  const workspaceId = await resolveImportWorkspaceId()
+  if (!workspaceId) {
+    message.warning('请先进入一个工作区')
+    event.target.value = ''
+    return
+  }
+  try {
+    await noteApi.importNote(workspaceId, file)
+    message.success('导入成功')
+    await loadNotes(selectedNoteId.value)
+  } catch (error) {
+    console.error('[Home] importNote error:', error)
+    message.error(error?.response?.data?.message || '导入失败')
+  } finally {
+    event.target.value = ''
+  }
 }
 
 const handleAiAnalyse = (prompt) => {
@@ -504,6 +577,10 @@ onMounted(async () => {
   display: flex;
   flex-direction: column;
   gap: 22px;
+}
+
+.import-input {
+  display: none;
 }
 
 .note-list-row {
