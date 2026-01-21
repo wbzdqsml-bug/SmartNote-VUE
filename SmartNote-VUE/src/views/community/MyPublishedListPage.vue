@@ -1,3 +1,10 @@
+<!--
+  文件说明：社区页面（MyPublishedListPage）
+  - 主要职责：负责社区相关的页面布局、列表展示与交互组织。
+  - 关键交互：梳理组件输入（props/状态）与输出（事件/调用）以便维护。
+  - 依赖关系：记录依赖的 API/状态仓库/子组件，便于追踪数据来源。
+  - 维护提示：修改结构或样式时，注意与父子组件/路由联动影响。
+-->
 <template>
   <div class="mine-page">
     <header class="header">
@@ -107,6 +114,15 @@ const normalizeItem = (raw) => ({
   favoriteCount: raw.favoriteCount ?? raw.FavoriteCount
 })
 
+const resolveNotesResponse = (response) => {
+  if (!response) return []
+  const payload = response.data ?? response
+  if (payload && typeof payload === 'object' && 'data' in payload) {
+    return payload.data ?? []
+  }
+  return payload ?? []
+}
+
 const openDetail = (item) => {
   router.push({ path: `/community/${item.id}` })
 }
@@ -114,7 +130,7 @@ const openDetail = (item) => {
 const loadNotes = async () => {
   if (notesCache.value.length) return
   const response = await noteApi.list()
-  const list = response?.data ?? response ?? []
+  const list = resolveNotesResponse(response)
   notesCache.value = Array.isArray(list) ? list : []
   noteOptions.value = notesCache.value.map((note) => ({
     label: note.title || note.Title || '未命名笔记',
