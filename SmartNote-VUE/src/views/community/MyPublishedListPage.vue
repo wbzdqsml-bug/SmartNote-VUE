@@ -114,6 +114,15 @@ const normalizeItem = (raw) => ({
   favoriteCount: raw.favoriteCount ?? raw.FavoriteCount
 })
 
+const resolveNotesResponse = (response) => {
+  if (!response) return []
+  const payload = response.data ?? response
+  if (payload && typeof payload === 'object' && 'data' in payload) {
+    return payload.data ?? []
+  }
+  return payload ?? []
+}
+
 const openDetail = (item) => {
   router.push({ path: `/community/${item.id}` })
 }
@@ -121,7 +130,7 @@ const openDetail = (item) => {
 const loadNotes = async () => {
   if (notesCache.value.length) return
   const response = await noteApi.list()
-  const list = response?.data ?? response ?? []
+  const list = resolveNotesResponse(response)
   notesCache.value = Array.isArray(list) ? list : []
   noteOptions.value = notesCache.value.map((note) => ({
     label: note.title || note.Title || '未命名笔记',
