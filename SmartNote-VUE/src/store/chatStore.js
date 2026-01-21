@@ -1,3 +1,10 @@
+/**
+ * 文件说明：状态管理模块（chatStore）
+ * - 主要职责：封装 Pinia 状态、getter 与 action，供页面与组件复用。
+ * - 关键接口：标注导出的函数/对象及其入参、返回值与使用场景。
+ * - 依赖关系：说明依赖的外部库/配置项，便于排查问题。
+ * - 维护提示：新增或调整逻辑时，保持命名一致并补充相应注释。
+ */
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
 import { HubConnectionBuilder, LogLevel } from '@microsoft/signalr'
