@@ -20,9 +20,11 @@
         :liked="liked"
         :favorited="favorited"
         :show-publish="canPublish"
+        :show-unpublish="canUnpublish"
         @toggle-like="toggleLike"
         @toggle-favorite="toggleFavorite"
         @publish="openPublishModal"
+        @unpublish="handleUnpublish"
         @clone="openCloneModal"
       />
     </section>
@@ -99,7 +101,7 @@
 <script setup>
 import { computed, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { NInput, NButton, NModal, NForm, NFormItem, NSelect } from 'naive-ui'
+import { NInput, NButton, NModal, NForm, NFormItem, NSelect, useMessage } from 'naive-ui'
 import MarkdownIt from 'markdown-it'
 import communityApi from '@/api/community'
 import workspaceApi from '@/api/workspace'
@@ -110,6 +112,7 @@ import CommunityStatsBar from '@/components/community/CommunityStatsBar.vue'
 const route = useRoute()
 const router = useRouter()
 const markdown = new MarkdownIt()
+const message = useMessage()
 
 const detail = ref(null)
 const commentTree = ref([])
@@ -144,6 +147,11 @@ const canPublish = computed(() => {
     status === null ||
     status === undefined
   )
+})
+
+const canUnpublish = computed(() => {
+  const status = detail.value?.status
+  return status === 2 || status === 'Published'
 })
 
 const renderedContent = computed(() => {
@@ -197,6 +205,16 @@ const loadDetail = async () => {
     favoriteCount: data.favoriteCount ?? data.FavoriteCount,
     cloneCount: data.cloneCount ?? data.CloneCount
   }
+}
+
+const handleUnpublish = async () => {
+  if (!detail.value?.id) return
+  await communityApi.updateStatus({
+    publicContentId: detail.value.id,
+    status: 3
+  })
+  message.success('已下架')
+  await loadDetail()
 }
 
 const normalizeComment = (comment) => ({
