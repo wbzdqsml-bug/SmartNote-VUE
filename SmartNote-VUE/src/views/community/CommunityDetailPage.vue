@@ -136,7 +136,14 @@ const resolvedNoteId = computed(() => (detail.value?.noteId ?? Number(route.quer
 const canPublish = computed(() => {
   if (!resolvedNoteId.value) return false
   const status = detail.value?.status
-  return status === 0 || status === 'Draft' || status === null || status === undefined
+  return (
+    status === 0 ||
+    status === 1 ||
+    status === 'Private' ||
+    status === 'Draft' ||
+    status === null ||
+    status === undefined
+  )
 })
 
 const renderedContent = computed(() => {

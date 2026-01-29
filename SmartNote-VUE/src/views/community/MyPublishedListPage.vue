@@ -96,9 +96,10 @@ const publishForm = ref({
 
 const statusOptions = [
   { label: '全部状态', value: null },
-  { label: '草稿', value: 0 },
-  { label: '已发布', value: 1 },
-  { label: '已下架', value: 2 }
+  { label: '私有', value: 0 },
+  { label: '草稿', value: 1 },
+  { label: '已发布', value: 2 },
+  { label: '已下架', value: 3 }
 ]
 
 const normalizeItem = (raw) => ({
