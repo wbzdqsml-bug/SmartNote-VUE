@@ -19,12 +19,20 @@
     </header>
 
     <section class="list">
-      <community-card
-        v-for="item in items"
-        :key="item.id"
-        :item="normalizeItem(item)"
-        @open="openDetail"
-      />
+      <div v-for="item in normalizedItems" :key="item.id" class="list-item">
+        <community-card :item="item" @open="openDetail" />
+        <div class="item-actions">
+          <n-button
+            v-if="canUnpublish(item)"
+            size="small"
+            type="warning"
+            secondary
+            @click.stop="handleUnpublish(item)"
+          >
+            下架
+          </n-button>
+        </div>
+      </div>
       <div v-if="!items.length && !loading" class="empty">暂无发布内容</div>
     </section>
 
@@ -69,7 +77,7 @@
 </template>
 
 <script setup>
-import { onMounted, ref, watch } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { NSelect, NPagination, NButton, NModal, NForm, NFormItem, NInput, useMessage } from 'naive-ui'
 import { useRouter } from 'vue-router'
 import communityApi from '@/api/community'
@@ -114,6 +122,10 @@ const normalizeItem = (raw) => ({
   likeCount: raw.likeCount ?? raw.LikeCount,
   favoriteCount: raw.favoriteCount ?? raw.FavoriteCount
 })
+
+const normalizedItems = computed(() => items.value.map((item) => normalizeItem(item)))
+
+const canUnpublish = (item) => item.status === 2 || item.status === 'Published'
 
 const resolveNotesResponse = (response) => {
   if (!response) return []
@@ -184,6 +196,15 @@ const confirmPublish = async () => {
     ContentSnapshotJson: contentSnapshot || null
   })
   publishModalVisible.value = false
+  await loadData()
+}
+
+const handleUnpublish = async (item) => {
+  await communityApi.updateStatus({
+    publicContentId: item.id,
+    status: 3
+  })
+  message.success('已下架')
   await loadData()
 }
 
@@ -264,6 +285,19 @@ onMounted(loadData)
 .list {
   column-count: 3;
   column-gap: 18px;
+}
+
+.list-item {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  break-inside: avoid;
+  margin-bottom: 16px;
+}
+
+.item-actions {
+  display: flex;
+  justify-content: flex-end;
 }
 
 .empty {
