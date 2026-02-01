@@ -7,16 +7,30 @@
 -->
 <template>
   <article class="community-card" @click="$emit('open', item)">
-    <div class="card-top">
-      <span class="type-chip">{{ resolveTypeLabel(item.contentType) }}</span>
-      <span class="status-chip" :class="resolveStatusClass(item.status)">
-        {{ resolveStatusLabel(item.status) }}
-      </span>
+    <div class="card-media">
+      <div class="thumbnail">
+        <img
+          v-if="resolveThumbnailUrl(item.contentJson)"
+          class="thumbnail-image"
+          :src="resolveThumbnailUrl(item.contentJson)"
+          alt="内容缩略图"
+        />
+        <div v-else class="thumbnail-inner">
+          <span class="thumbnail-label">PDF</span>
+        </div>
+      </div>
     </div>
-    <h3 class="title">{{ item.title || '未命名内容' }}</h3>
-    <p class="excerpt">{{ renderExcerpt(item.contentJson) }}</p>
-    <div class="meta">
-      <div class="author">
+    <div class="card-body">
+      <div class="card-header">
+        <div class="title-group">
+          <h3 class="title">{{ item.title || '未命名内容' }}</h3>
+        </div>
+        <div class="right-meta">
+          <span class="type-label">{{ resolveTypeLabel(item.contentType) }}</span>
+          <span class="comment-count">💬 {{ item.commentCount ?? 0 }}</span>
+        </div>
+      </div>
+      <div class="meta-row">
         <span class="author-name">{{ item.authorName || '匿名创作者' }}</span>
         <span class="time">{{ formatTime(item.publishedAt) }}</span>
       </div>
@@ -43,34 +57,64 @@ defineEmits(['open'])
 
 const resolveTypeLabel = (value) => {
   if (value === null || value === undefined || value === '') return '全部'
+  if (value === 0 || value === 'Markdown' || value === 'MARKDOWN') return 'Markdown'
   if (value === 1 || value === 'Note' || value === 'NOTE') return '笔记'
   if (value === 2 || value === 'Template' || value === 'TEMPLATE') return '模板'
+  if (value === 3 || value === 'RichText' || value === 'RICH_TEXT') return '富文本'
   return String(value)
 }
 
-const resolveStatusLabel = (value) => {
-  if (value === null || value === undefined || value === '') return '公开'
-  const mapping = {
-    0: '草稿',
-    1: '已发布',
-    2: '已下架',
-    Draft: '草稿',
-    Published: '已发布',
-    Banned: '已下架'
+const findImageUrl = (value) => {
+  if (!value) return ''
+  if (typeof value === 'string') {
+    const htmlMatch = value.match(/<img[^>]+src=["']([^"']+)["']/i)
+    if (htmlMatch?.[1]) return htmlMatch[1]
+    const markdownMatch = value.match(/!\[[^\]]*]\(([^)]+)\)/)
+    if (markdownMatch?.[1]) return markdownMatch[1]
+    const jsonMatch = value.match(/"src"\s*:\s*"([^"]+)"/i)
+    return jsonMatch?.[1] || ''
   }
-  return mapping[value] || value
+  if (Array.isArray(value)) {
+    for (const item of value) {
+      const found = findImageUrl(item)
+      if (found) return found
+    }
+  }
+  if (typeof value === 'object') {
+    const direct =
+      value.src ||
+      value.url ||
+      value.image ||
+      value.thumbnail ||
+      value.thumb ||
+      value.fileUrl ||
+      value.previewUrl
+    if (typeof direct === 'string' && direct.startsWith('http')) return direct
+    for (const key of Object.keys(value)) {
+      const found = findImageUrl(value[key])
+      if (found) return found
+    }
+  }
+  return ''
 }
 
-const resolveStatusClass = (value) => {
-  if (value === 2 || value === 'Banned') return 'danger'
-  if (value === 0 || value === 'Draft') return 'warning'
-  return 'success'
-}
-
-const renderExcerpt = (content) => {
-  if (!content) return '暂无内容摘要'
+const resolveThumbnailUrl = (content) => {
+  if (!content) return ''
+  if (typeof content === 'string') {
+    const trimmed = content.trim()
+    if (trimmed.startsWith('{') || trimmed.startsWith('[')) {
+      try {
+        const parsed = JSON.parse(trimmed)
+        const found = findImageUrl(parsed)
+        if (found) return found
+      } catch (error) {
+        return findImageUrl(content)
+      }
+    }
+  }
   const raw = typeof content === 'string' ? content : JSON.stringify(content)
-  return raw.replace(/<[^>]*>/g, '').slice(0, 140)
+  const found = findImageUrl(raw)
+  return found || ''
 }
 
 const formatTime = (value) => {
@@ -85,90 +129,138 @@ const formatTime = (value) => {
 
 <style scoped>
 .community-card {
-  background: linear-gradient(160deg, #ffffff 0%, #f1f5ff 100%);
+  background: #ffffff;
   border-radius: 18px;
-  padding: 18px;
-  box-shadow: 0 12px 26px rgba(15, 23, 42, 0.08);
-  border: 1px solid rgba(148, 163, 184, 0.25);
+  padding: 16px 20px;
   cursor: pointer;
-  transition: transform 0.2s ease, box-shadow 0.2s ease;
-  display: inline-block;
+  transition: box-shadow 0.2s ease, border-color 0.2s ease, transform 0.2s ease;
+  display: flex;
+  gap: 18px;
+  align-items: center;
   width: 100%;
-  margin-bottom: 16px;
 }
 
 .community-card:hover {
-  transform: translateY(-4px);
-  box-shadow: 0 18px 32px rgba(15, 23, 42, 0.12);
+  box-shadow: 0 12px 24px rgba(15, 23, 42, 0.08);
+  transform: translateY(-1px);
 }
 
-.card-top {
+.card-media {
+  flex: 0 0 96px;
   display: flex;
-  gap: 8px;
-  justify-content: space-between;
   align-items: center;
-  margin-bottom: 10px;
+  justify-content: center;
 }
 
-.type-chip,
-.status-chip {
-  font-size: 12px;
-  padding: 4px 10px;
-  border-radius: 999px;
-  background: rgba(59, 130, 246, 0.12);
-  color: #2563eb;
+.thumbnail {
+  width: 96px;
+  height: 96px;
+  border-radius: 16px;
+  background: #f1f5f9;
+  border: 1px solid #e2e8f0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+
+.thumbnail-image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.thumbnail-inner {
+  width: 62px;
+  height: 74px;
+  border-radius: 10px;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #64748b;
+  font-size: 11px;
   font-weight: 600;
 }
 
-.status-chip.success {
-  background: rgba(16, 185, 129, 0.16);
-  color: #059669;
+.thumbnail-label {
+  letter-spacing: 0.08em;
 }
 
-.status-chip.warning {
-  background: rgba(245, 158, 11, 0.16);
-  color: #b45309;
+.card-body {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
 }
 
-.status-chip.danger {
-  background: rgba(239, 68, 68, 0.16);
-  color: #dc2626;
+.card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+}
+
+.title-group {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+}
+
+.right-meta {
+  display: flex;
+  flex-direction: row;
+  align-items: flex-end;
+  gap: 12px;
+  text-align: right;
 }
 
 .title {
-  margin: 0 0 10px;
-  font-size: 18px;
+  margin: 0;
+  font-size: 20px;
+  font-weight: 700;
   color: #0f172a;
 }
 
-.excerpt {
-  margin: 0 0 16px;
-  color: #475569;
-  font-size: 14px;
-  line-height: 1.6;
-  min-height: 42px;
+.type-label,
+.comment-count {
+  font-size: 12px;
+  color: #64748b;
+  font-weight: 600;
 }
 
-.meta {
+.meta-row {
   display: flex;
-  flex-direction: column;
-  gap: 8px;
+  align-items: center;
+  gap: 12px;
   font-size: 12px;
   color: #64748b;
 }
 
-.author {
-  display: flex;
-  justify-content: space-between;
-}
-
 .author-name {
-  font-weight: 600;
-  color: #334155;
+  font-weight: 500;
+  color: #475569;
 }
 
 .stats {
   display: flex;
   gap: 12px;
+  font-size: 12px;
+  color: #64748b;
+}
+
+@media (max-width: 720px) {
+  .community-card {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .card-media {
+    width: 100%;
+    justify-content: flex-start;
+  }
 }
 </style>
