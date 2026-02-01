@@ -112,6 +112,7 @@ const statusOptions = [
 
 const normalizeItem = (raw) => ({
   id: raw.id ?? raw.Id,
+  noteId: raw.noteId ?? raw.NoteId,
   title: raw.title ?? raw.Title,
   contentJson: raw.contentJson ?? raw.ContentJson,
   contentType: raw.contentType ?? raw.ContentType,
@@ -134,6 +135,13 @@ const resolveNotesResponse = (response) => {
     return payload.data ?? []
   }
   return payload ?? []
+}
+
+const findExistingContentByNoteId = async (noteId) => {
+  const data = await communityApi.mine({ page: 1, pageSize: 100 })
+  const list = data?.items ?? data?.list ?? data?.data ?? data ?? []
+  const normalized = Array.isArray(list) ? list.map(normalizeItem) : []
+  return normalized.find((item) => item.noteId === noteId) || null
 }
 
 const openDetail = (item) => {
@@ -189,12 +197,23 @@ const confirmPublish = async () => {
   }
   const titleSnapshot = publishForm.value.titleSnapshot?.trim()
   const contentSnapshot = publishForm.value.contentSnapshot
-  await communityApi.publish({
-    NoteId: payload.NoteId,
-    ContentType: payload.ContentType,
-    TitleSnapshot: titleSnapshot || null,
-    ContentSnapshotJson: contentSnapshot || null
-  })
+  try {
+    await communityApi.publish({
+      NoteId: payload.NoteId,
+      ContentType: payload.ContentType,
+      TitleSnapshot: titleSnapshot || null,
+      ContentSnapshotJson: contentSnapshot || null
+    })
+  } catch (error) {
+    if (error?.response?.status !== 400) throw error
+    const existing = await findExistingContentByNoteId(payload.NoteId)
+    if (!existing?.id) throw error
+    await communityApi.updateStatus({
+      publicContentId: existing.id,
+      status: 2
+    })
+    message.success('已重新发布')
+  }
   publishModalVisible.value = false
   await loadData()
 }
