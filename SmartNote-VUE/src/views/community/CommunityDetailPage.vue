@@ -211,9 +211,9 @@ const handleUnpublish = async () => {
   if (!detail.value?.id) return
   await communityApi.updateStatus({
     publicContentId: detail.value.id,
-    status: 3
+    status: 1
   })
-  message.success('已下架')
+  message.success('已下架，已转为草稿')
   await loadDetail()
 }
 

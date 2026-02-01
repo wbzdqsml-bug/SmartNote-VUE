@@ -202,9 +202,9 @@ const confirmPublish = async () => {
 const handleUnpublish = async (item) => {
   await communityApi.updateStatus({
     publicContentId: item.id,
-    status: 3
+    status: 1
   })
-  message.success('已下架')
+  message.success('已下架，已转为草稿')
   await loadData()
 }
 
