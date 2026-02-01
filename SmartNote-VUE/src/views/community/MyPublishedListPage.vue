@@ -114,7 +114,8 @@ const normalizeItem = (raw) => ({
   id: raw.id ?? raw.Id,
   noteId: raw.noteId ?? raw.NoteId,
   title: raw.title ?? raw.Title,
-  contentJson: raw.contentJson ?? raw.ContentJson,
+  contentJson:
+    raw.contentSnapshotJson ?? raw.ContentSnapshotJson ?? raw.contentJson ?? raw.ContentJson,
   contentType: raw.contentType ?? raw.ContentType,
   status: raw.status ?? raw.Status,
   authorName: raw.authorName ?? raw.AuthorName,

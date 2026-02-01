@@ -109,20 +109,93 @@ const resolveContentText = (content) => {
   return String(content)
 }
 
+const findImageUrl = (value) => {
+  if (!value) return ''
+  if (typeof value === 'string') {
+    const htmlMatch = value.match(/<img[^>]+src=["']([^"']+)["']/i)
+    if (htmlMatch?.[1]) return htmlMatch[1]
+    const markdownMatch = value.match(/!\[[^\]]*]\(([^)]+)\)/)
+    if (markdownMatch?.[1]) return markdownMatch[1]
+    const jsonMatch = value.match(/"src"\s*:\s*"([^"]+)"/i)
+    return jsonMatch?.[1] || ''
+  }
+  if (Array.isArray(value)) {
+    for (const item of value) {
+      const found = findImageUrl(item)
+      if (found) return found
+    }
+  }
+  if (typeof value === 'object') {
+    const direct =
+      value.src ||
+      value.url ||
+      value.image ||
+      value.thumbnail ||
+      value.thumb ||
+      value.fileUrl ||
+      value.previewUrl
+    if (typeof direct === 'string' && direct.startsWith('http')) return direct
+    for (const key of Object.keys(value)) {
+      const found = findImageUrl(value[key])
+      if (found) return found
+    }
+  }
+  return ''
+}
+
 const resolveThumbnailUrl = (content) => {
+  if (!content) return ''
+  if (typeof content === 'string') {
+    const trimmed = content.trim()
+    if (trimmed.startsWith('{') || trimmed.startsWith('[')) {
+      try {
+        const parsed = JSON.parse(trimmed)
+        const found = findImageUrl(parsed)
+        if (found) return found
+      } catch (error) {
+        return findImageUrl(content)
+      }
+    }
+  }
   const raw = resolveContentText(content)
-  if (!raw) return ''
-  const htmlMatch = raw.match(/<img[^>]+src=["']([^"']+)["']/i)
-  if (htmlMatch?.[1]) return htmlMatch[1]
-  const markdownMatch = raw.match(/!\[[^\]]*]\(([^)]+)\)/)
-  if (markdownMatch?.[1]) return markdownMatch[1]
-  const jsonMatch = raw.match(/"src"\s*:\s*"([^"]+)"/i)
-  return jsonMatch?.[1] || ''
+  const found = findImageUrl(raw)
+  return found || ''
+}
+
+const extractText = (value, parts = []) => {
+  if (!value) return parts
+  if (typeof value === 'string') {
+    if (value.startsWith('http')) return parts
+    parts.push(value)
+    return parts
+  }
+  if (Array.isArray(value)) {
+    value.forEach((item) => extractText(item, parts))
+    return parts
+  }
+  if (typeof value === 'object') {
+    const textValue = value.text || value.title || value.content || value.markdown || value.md
+    if (typeof textValue === 'string') parts.push(textValue)
+    Object.keys(value).forEach((key) => extractText(value[key], parts))
+  }
+  return parts
 }
 
 const renderExcerpt = (content) => {
-  const raw = resolveContentText(content)
-  if (!raw) return '暂无内容摘要'
+  if (!content) return '暂无内容摘要'
+  let raw = resolveContentText(content)
+  if (typeof content === 'string') {
+    const trimmed = content.trim()
+    if (trimmed.startsWith('{') || trimmed.startsWith('[')) {
+      try {
+        const parsed = JSON.parse(trimmed)
+        const collected = extractText(parsed).join(' ')
+        if (collected) raw = collected
+      } catch (error) {
+        raw = resolveContentText(content)
+      }
+    }
+  }
   const withoutImages = raw.replace(/!\[[^\]]*]\([^)]+\)/g, '')
   const withoutLinks = withoutImages.replace(/\[[^\]]*]\([^)]+\)/g, '')
   const withoutHtml = withoutLinks.replace(/<[^>]*>/g, '')
