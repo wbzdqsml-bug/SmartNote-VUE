@@ -7,24 +7,24 @@
 -->
 <template>
   <article class="community-card" @click="$emit('open', item)">
-    <div class="card-top">
-      <span class="type-chip">{{ resolveTypeLabel(item.contentType) }}</span>
+    <div class="card-header">
+      <div class="title-group">
+        <span class="type-chip">{{ resolveTypeLabel(item.contentType) }}</span>
+        <h3 class="title">{{ item.title || '未命名内容' }}</h3>
+      </div>
       <span class="status-chip" :class="resolveStatusClass(item.status)">
         {{ resolveStatusLabel(item.status) }}
       </span>
     </div>
-    <h3 class="title">{{ item.title || '未命名内容' }}</h3>
+    <div class="meta-row">
+      <span class="author-name">{{ item.authorName || '匿名创作者' }}</span>
+      <span class="time">{{ formatTime(item.publishedAt) }}</span>
+    </div>
     <p class="excerpt">{{ renderExcerpt(item.contentJson) }}</p>
-    <div class="meta">
-      <div class="author">
-        <span class="author-name">{{ item.authorName || '匿名创作者' }}</span>
-        <span class="time">{{ formatTime(item.publishedAt) }}</span>
-      </div>
-      <div class="stats">
-        <span>👀 {{ item.viewCount ?? 0 }}</span>
-        <span>❤️ {{ item.likeCount ?? 0 }}</span>
-        <span>⭐ {{ item.favoriteCount ?? 0 }}</span>
-      </div>
+    <div class="stats">
+      <span>👀 {{ item.viewCount ?? 0 }}</span>
+      <span>❤️ {{ item.likeCount ?? 0 }}</span>
+      <span>⭐ {{ item.favoriteCount ?? 0 }}</span>
     </div>
   </article>
 </template>
@@ -51,9 +51,11 @@ const resolveTypeLabel = (value) => {
 const resolveStatusLabel = (value) => {
   if (value === null || value === undefined || value === '') return '公开'
   const mapping = {
-    0: '草稿',
-    1: '已发布',
-    2: '已下架',
+    0: '私有',
+    1: '草稿',
+    2: '已发布',
+    3: '已下架',
+    Private: '私有',
     Draft: '草稿',
     Published: '已发布',
     Banned: '已下架'
@@ -62,8 +64,8 @@ const resolveStatusLabel = (value) => {
 }
 
 const resolveStatusClass = (value) => {
-  if (value === 2 || value === 'Banned') return 'danger'
-  if (value === 0 || value === 'Draft') return 'warning'
+  if (value === 3 || value === 'Banned') return 'danger'
+  if (value === 0 || value === 1 || value === 'Private' || value === 'Draft') return 'warning'
   return 'success'
 }
 
@@ -85,90 +87,92 @@ const formatTime = (value) => {
 
 <style scoped>
 .community-card {
-  background: linear-gradient(160deg, #ffffff 0%, #f1f5ff 100%);
-  border-radius: 18px;
-  padding: 18px;
-  box-shadow: 0 12px 26px rgba(15, 23, 42, 0.08);
-  border: 1px solid rgba(148, 163, 184, 0.25);
+  background: #ffffff;
+  border-radius: 12px;
+  padding: 16px;
+  border: 1px solid #e2e8f0;
   cursor: pointer;
-  transition: transform 0.2s ease, box-shadow 0.2s ease;
-  display: inline-block;
+  transition: box-shadow 0.2s ease, border-color 0.2s ease;
+  display: block;
   width: 100%;
-  margin-bottom: 16px;
 }
 
 .community-card:hover {
-  transform: translateY(-4px);
-  box-shadow: 0 18px 32px rgba(15, 23, 42, 0.12);
+  border-color: #cbd5f5;
+  box-shadow: 0 8px 18px rgba(15, 23, 42, 0.08);
 }
 
-.card-top {
+.card-header {
   display: flex;
-  gap: 8px;
   justify-content: space-between;
-  align-items: center;
-  margin-bottom: 10px;
+  align-items: flex-start;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+
+.title-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
 }
 
 .type-chip,
 .status-chip {
   font-size: 12px;
-  padding: 4px 10px;
-  border-radius: 999px;
-  background: rgba(59, 130, 246, 0.12);
-  color: #2563eb;
-  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 6px;
+  background: #e2e8f0;
+  color: #475569;
+  font-weight: 500;
 }
 
 .status-chip.success {
-  background: rgba(16, 185, 129, 0.16);
-  color: #059669;
+  background: #dcfce7;
+  color: #15803d;
 }
 
 .status-chip.warning {
-  background: rgba(245, 158, 11, 0.16);
-  color: #b45309;
+  background: #fef3c7;
+  color: #a16207;
 }
 
 .status-chip.danger {
-  background: rgba(239, 68, 68, 0.16);
-  color: #dc2626;
+  background: #fee2e2;
+  color: #b91c1c;
 }
 
 .title {
-  margin: 0 0 10px;
-  font-size: 18px;
+  margin: 0;
+  font-size: 17px;
   color: #0f172a;
 }
 
 .excerpt {
-  margin: 0 0 16px;
-  color: #475569;
+  margin: 0 0 12px;
+  color: #4b5563;
   font-size: 14px;
-  line-height: 1.6;
-  min-height: 42px;
+  line-height: 1.55;
+  min-height: 36px;
 }
 
-.meta {
+.meta-row {
   display: flex;
-  flex-direction: column;
-  gap: 8px;
+  align-items: center;
+  gap: 12px;
   font-size: 12px;
   color: #64748b;
-}
-
-.author {
-  display: flex;
-  justify-content: space-between;
+  margin-bottom: 8px;
 }
 
 .author-name {
-  font-weight: 600;
-  color: #334155;
+  font-weight: 500;
+  color: #475569;
 }
 
 .stats {
   display: flex;
   gap: 12px;
+  font-size: 12px;
+  color: #64748b;
 }
 </style>

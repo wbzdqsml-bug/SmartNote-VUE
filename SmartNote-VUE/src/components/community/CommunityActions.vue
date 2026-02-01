@@ -16,6 +16,9 @@
     <button v-if="showPublish" class="action-btn publish" @click="$emit('publish')">
       🚀 发布
     </button>
+    <button v-if="showUnpublish" class="action-btn unpublish" @click="$emit('unpublish')">
+      📴 下架
+    </button>
     <button class="action-btn clone" @click="$emit('clone')">
       🔁 克隆到工作区
     </button>
@@ -26,10 +29,11 @@
 defineProps({
   liked: Boolean,
   favorited: Boolean,
-  showPublish: Boolean
+  showPublish: Boolean,
+  showUnpublish: Boolean
 })
 
-defineEmits(['toggle-like', 'toggle-favorite', 'clone', 'publish'])
+defineEmits(['toggle-like', 'toggle-favorite', 'clone', 'publish', 'unpublish'])
 </script>
 
 <style scoped>
@@ -63,6 +67,11 @@ defineEmits(['toggle-like', 'toggle-favorite', 'clone', 'publish'])
 .action-btn.publish {
   background: rgba(14, 165, 233, 0.16);
   color: #0369a1;
+}
+
+.action-btn.unpublish {
+  background: rgba(239, 68, 68, 0.16);
+  color: #dc2626;
 }
 
 .action-btn:hover {
