@@ -9,7 +9,13 @@
   <article class="community-card" @click="$emit('open', item)">
     <div class="card-media">
       <div class="thumbnail">
-        <div class="thumbnail-inner">
+        <img
+          v-if="resolveThumbnailUrl(item.contentJson)"
+          class="thumbnail-image"
+          :src="resolveThumbnailUrl(item.contentJson)"
+          alt="内容缩略图"
+        />
+        <div v-else class="thumbnail-inner">
           <span class="thumbnail-label">PDF</span>
         </div>
       </div>
@@ -20,15 +26,18 @@
           <h3 class="title">{{ item.title || '未命名内容' }}</h3>
           <span class="type-chip">{{ resolveTypeLabel(item.contentType) }}</span>
         </div>
-        <span class="status-chip" :class="resolveStatusClass(item.status)">
-          {{ resolveStatusLabel(item.status) }}
-        </span>
+        <div class="right-summary">
+          <span class="status-chip" :class="resolveStatusClass(item.status)">
+            {{ resolveStatusLabel(item.status) }}
+          </span>
+          <p class="summary">{{ renderExcerpt(item.contentJson) }}</p>
+        </div>
       </div>
       <div class="meta-row">
         <span class="author-name">{{ item.authorName || '匿名创作者' }}</span>
         <span class="time">{{ formatTime(item.publishedAt) }}</span>
       </div>
-      <p class="excerpt">{{ renderExcerpt(item.contentJson) }}</p>
+      <p class="excerpt">{{ item.authorName || '匿名创作者' }}</p>
       <div class="stats">
         <span>👀 {{ item.viewCount ?? 0 }}</span>
         <span>❤️ {{ item.likeCount ?? 0 }}</span>
@@ -76,6 +85,13 @@ const resolveStatusClass = (value) => {
   if (value === 3 || value === 'Banned') return 'danger'
   if (value === 0 || value === 1 || value === 'Private' || value === 'Draft') return 'warning'
   return 'success'
+}
+
+const resolveThumbnailUrl = (content) => {
+  if (!content) return ''
+  const raw = typeof content === 'string' ? content : JSON.stringify(content)
+  const match = raw.match(/<img[^>]+src=["']([^"']+)["']/i)
+  return match?.[1] || ''
 }
 
 const renderExcerpt = (content) => {
@@ -130,6 +146,13 @@ const formatTime = (value) => {
   display: flex;
   align-items: center;
   justify-content: center;
+  overflow: hidden;
+}
+
+.thumbnail-image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
 }
 
 .thumbnail-inner {
@@ -182,6 +205,22 @@ const formatTime = (value) => {
   font-weight: 500;
 }
 
+.right-summary {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 6px;
+  text-align: right;
+  max-width: 220px;
+}
+
+.summary {
+  margin: 0;
+  font-size: 12px;
+  color: #94a3b8;
+  line-height: 1.4;
+}
+
 .status-chip.success {
   background: #dcfce7;
   color: #15803d;
@@ -206,7 +245,7 @@ const formatTime = (value) => {
 
 .excerpt {
   margin: 0;
-  color: #6b7280;
+  color: #475569;
   font-size: 13px;
   line-height: 1.5;
   min-height: 32px;
