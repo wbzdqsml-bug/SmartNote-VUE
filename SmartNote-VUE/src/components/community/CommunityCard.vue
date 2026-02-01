@@ -30,7 +30,7 @@
           <span class="status-chip" :class="resolveStatusClass(item.status)">
             {{ resolveStatusLabel(item.status) }}
           </span>
-          <p class="summary">{{ renderExcerpt(item.contentJson) }}</p>
+          <p class="summary">{{ resolveSummary(item) }}</p>
         </div>
       </div>
       <div class="meta-row">
@@ -215,6 +215,19 @@ const renderExcerpt = (content) => {
   const withoutHtml = withoutLinks.replace(/<[^>]*>/g, '')
   const trimmed = withoutHtml.replace(/\s+/g, ' ').trim()
   return trimmed ? trimmed.slice(0, 140) : '暂无内容摘要'
+}
+
+const resolveSummary = (item) => {
+  const candidate = renderExcerpt(item?.contentJson)
+  if (candidate && candidate !== '暂无内容摘要') return candidate
+  return (
+    item?.preview ||
+    item?.contentSummary ||
+    item?.summary ||
+    item?.titleSnapshot ||
+    item?.title ||
+    '暂无内容摘要'
+  )
 }
 
 const formatTime = (value) => {
