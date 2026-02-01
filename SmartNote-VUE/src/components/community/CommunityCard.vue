@@ -7,19 +7,37 @@
 -->
 <template>
   <article class="community-card" @click="$emit('open', item)">
-    <div class="card-top">
-      <span class="type-chip">{{ resolveTypeLabel(item.contentType) }}</span>
-      <span class="status-chip" :class="resolveStatusClass(item.status)">
-        {{ resolveStatusLabel(item.status) }}
-      </span>
+    <div class="card-media">
+      <div class="thumbnail">
+        <img
+          v-if="resolveThumbnailUrl(item.contentJson)"
+          class="thumbnail-image"
+          :src="resolveThumbnailUrl(item.contentJson)"
+          alt="内容缩略图"
+        />
+        <div v-else class="thumbnail-inner">
+          <span class="thumbnail-label">PDF</span>
+        </div>
+      </div>
     </div>
-    <h3 class="title">{{ item.title || '未命名内容' }}</h3>
-    <p class="excerpt">{{ renderExcerpt(item.contentJson) }}</p>
-    <div class="meta">
-      <div class="author">
+    <div class="card-body">
+      <div class="card-header">
+        <div class="title-group">
+          <h3 class="title">{{ item.title || '未命名内容' }}</h3>
+          <span class="type-chip">{{ resolveTypeLabel(item.contentType) }}</span>
+        </div>
+        <div class="right-summary">
+          <span class="status-chip" :class="resolveStatusClass(item.status)">
+            {{ resolveStatusLabel(item.status) }}
+          </span>
+          <p class="summary">{{ resolveSummary(item) }}</p>
+        </div>
+      </div>
+      <div class="meta-row">
         <span class="author-name">{{ item.authorName || '匿名创作者' }}</span>
         <span class="time">{{ formatTime(item.publishedAt) }}</span>
       </div>
+      <p class="excerpt">{{ item.authorName || '匿名创作者' }}</p>
       <div class="stats">
         <span>👀 {{ item.viewCount ?? 0 }}</span>
         <span>❤️ {{ item.likeCount ?? 0 }}</span>
@@ -51,9 +69,11 @@ const resolveTypeLabel = (value) => {
 const resolveStatusLabel = (value) => {
   if (value === null || value === undefined || value === '') return '公开'
   const mapping = {
-    0: '草稿',
-    1: '已发布',
-    2: '已下架',
+    0: '私有',
+    1: '草稿',
+    2: '已发布',
+    3: '已下架',
+    Private: '私有',
     Draft: '草稿',
     Published: '已发布',
     Banned: '已下架'
@@ -62,15 +82,152 @@ const resolveStatusLabel = (value) => {
 }
 
 const resolveStatusClass = (value) => {
-  if (value === 2 || value === 'Banned') return 'danger'
-  if (value === 0 || value === 'Draft') return 'warning'
+  if (value === 3 || value === 'Banned') return 'danger'
+  if (value === 0 || value === 1 || value === 'Private' || value === 'Draft') return 'warning'
   return 'success'
+}
+
+const resolveContentText = (content) => {
+  if (!content) return ''
+  if (typeof content === 'string') {
+    const trimmed = content.trim()
+    if (trimmed.startsWith('{') || trimmed.startsWith('[')) {
+      try {
+        const parsed = JSON.parse(trimmed)
+        if (parsed && typeof parsed === 'object') {
+          return parsed.md ?? parsed.markdown ?? parsed.html ?? parsed.content ?? trimmed
+        }
+      } catch (error) {
+        return content
+      }
+    }
+    return content
+  }
+  if (typeof content === 'object') {
+    return content.md ?? content.markdown ?? content.html ?? content.content ?? JSON.stringify(content)
+  }
+  return String(content)
+}
+
+const findImageUrl = (value) => {
+  if (!value) return ''
+  if (typeof value === 'string') {
+    const htmlMatch = value.match(/<img[^>]+src=["']([^"']+)["']/i)
+    if (htmlMatch?.[1]) return htmlMatch[1]
+    const markdownMatch = value.match(/!\[[^\]]*]\(([^)]+)\)/)
+    if (markdownMatch?.[1]) return markdownMatch[1]
+    const jsonMatch = value.match(/"src"\s*:\s*"([^"]+)"/i)
+    return jsonMatch?.[1] || ''
+  }
+  if (Array.isArray(value)) {
+    for (const item of value) {
+      const found = findImageUrl(item)
+      if (found) return found
+    }
+  }
+  if (typeof value === 'object') {
+    const direct =
+      value.src ||
+      value.url ||
+      value.image ||
+      value.thumbnail ||
+      value.thumb ||
+      value.fileUrl ||
+      value.previewUrl
+    if (typeof direct === 'string' && direct.startsWith('http')) return direct
+    for (const key of Object.keys(value)) {
+      const found = findImageUrl(value[key])
+      if (found) return found
+    }
+  }
+  return ''
+}
+
+const resolveThumbnailUrl = (content) => {
+  if (!content) return ''
+  if (typeof content === 'string') {
+    const trimmed = content.trim()
+    if (trimmed.startsWith('{') || trimmed.startsWith('[')) {
+      try {
+        const parsed = JSON.parse(trimmed)
+        const found = findImageUrl(parsed)
+        if (found) return found
+      } catch (error) {
+        return findImageUrl(content)
+      }
+    }
+  }
+  const raw = resolveContentText(content)
+  const found = findImageUrl(raw)
+  return found || ''
+}
+
+const extractText = (value, parts = []) => {
+  if (!value) return parts
+  if (typeof value === 'string') {
+    if (value.startsWith('http')) return parts
+    parts.push(value)
+    return parts
+  }
+  if (Array.isArray(value)) {
+    value.forEach((item) => extractText(item, parts))
+    return parts
+  }
+  if (typeof value === 'object') {
+    if (Array.isArray(value.ops)) {
+      value.ops.forEach((op) => extractText(op, parts))
+      return parts
+    }
+    if (value.insert) {
+      extractText(value.insert, parts)
+    }
+    if (Array.isArray(value.children)) {
+      value.children.forEach((child) => extractText(child, parts))
+    }
+    const textValue = value.text || value.title || value.content || value.markdown || value.md
+    if (typeof textValue === 'string') parts.push(textValue)
+    Object.keys(value).forEach((key) => extractText(value[key], parts))
+  }
+  return parts
 }
 
 const renderExcerpt = (content) => {
   if (!content) return '暂无内容摘要'
-  const raw = typeof content === 'string' ? content : JSON.stringify(content)
-  return raw.replace(/<[^>]*>/g, '').slice(0, 140)
+  let raw = resolveContentText(content)
+  if (typeof content === 'object') {
+    const collected = extractText(content).join(' ')
+    if (collected) raw = collected
+  }
+  if (typeof content === 'string') {
+    const trimmed = content.trim()
+    if (trimmed.startsWith('{') || trimmed.startsWith('[')) {
+      try {
+        const parsed = JSON.parse(trimmed)
+        const collected = extractText(parsed).join(' ')
+        if (collected) raw = collected
+      } catch (error) {
+        raw = resolveContentText(content)
+      }
+    }
+  }
+  const withoutImages = raw.replace(/!\[[^\]]*]\([^)]+\)/g, '')
+  const withoutLinks = withoutImages.replace(/\[[^\]]*]\([^)]+\)/g, '')
+  const withoutHtml = withoutLinks.replace(/<[^>]*>/g, '')
+  const trimmed = withoutHtml.replace(/\s+/g, ' ').trim()
+  return trimmed ? trimmed.slice(0, 140) : '暂无内容摘要'
+}
+
+const resolveSummary = (item) => {
+  const candidate = renderExcerpt(item?.contentJson)
+  if (candidate && candidate !== '暂无内容摘要') return candidate
+  return (
+    item?.preview ||
+    item?.contentSummary ||
+    item?.summary ||
+    item?.titleSnapshot ||
+    item?.title ||
+    '暂无内容摘要'
+  )
 }
 
 const formatTime = (value) => {
@@ -85,90 +242,174 @@ const formatTime = (value) => {
 
 <style scoped>
 .community-card {
-  background: linear-gradient(160deg, #ffffff 0%, #f1f5ff 100%);
+  background: #ffffff;
   border-radius: 18px;
-  padding: 18px;
-  box-shadow: 0 12px 26px rgba(15, 23, 42, 0.08);
-  border: 1px solid rgba(148, 163, 184, 0.25);
+  padding: 16px 20px;
+  border: 1px solid #e5e7eb;
   cursor: pointer;
-  transition: transform 0.2s ease, box-shadow 0.2s ease;
-  display: inline-block;
+  transition: box-shadow 0.2s ease, border-color 0.2s ease, transform 0.2s ease;
+  display: flex;
+  gap: 18px;
+  align-items: center;
   width: 100%;
-  margin-bottom: 16px;
 }
 
 .community-card:hover {
-  transform: translateY(-4px);
-  box-shadow: 0 18px 32px rgba(15, 23, 42, 0.12);
+  border-color: #d1d5db;
+  box-shadow: 0 12px 24px rgba(15, 23, 42, 0.08);
+  transform: translateY(-1px);
 }
 
-.card-top {
+.card-media {
+  flex: 0 0 96px;
   display: flex;
-  gap: 8px;
+  align-items: center;
+  justify-content: center;
+}
+
+.thumbnail {
+  width: 96px;
+  height: 96px;
+  border-radius: 16px;
+  background: #f1f5f9;
+  border: 1px solid #e2e8f0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+
+.thumbnail-image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.thumbnail-inner {
+  width: 62px;
+  height: 74px;
+  border-radius: 10px;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #64748b;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.thumbnail-label {
+  letter-spacing: 0.08em;
+}
+
+.card-body {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.card-header {
+  display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 10px;
+  gap: 16px;
+}
+
+.title-group {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
 }
 
 .type-chip,
 .status-chip {
   font-size: 12px;
-  padding: 4px 10px;
-  border-radius: 999px;
-  background: rgba(59, 130, 246, 0.12);
-  color: #2563eb;
-  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 6px;
+  background: #e2e8f0;
+  color: #475569;
+  font-weight: 500;
+}
+
+.right-summary {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 6px;
+  text-align: right;
+  max-width: 220px;
+}
+
+.summary {
+  margin: 0;
+  font-size: 12px;
+  color: #94a3b8;
+  line-height: 1.4;
 }
 
 .status-chip.success {
-  background: rgba(16, 185, 129, 0.16);
-  color: #059669;
+  background: #dcfce7;
+  color: #15803d;
 }
 
 .status-chip.warning {
-  background: rgba(245, 158, 11, 0.16);
-  color: #b45309;
+  background: #fef3c7;
+  color: #a16207;
 }
 
 .status-chip.danger {
-  background: rgba(239, 68, 68, 0.16);
-  color: #dc2626;
+  background: #fee2e2;
+  color: #b91c1c;
 }
 
 .title {
-  margin: 0 0 10px;
-  font-size: 18px;
+  margin: 0;
+  font-size: 20px;
+  font-weight: 700;
   color: #0f172a;
 }
 
 .excerpt {
-  margin: 0 0 16px;
+  margin: 0;
   color: #475569;
-  font-size: 14px;
-  line-height: 1.6;
-  min-height: 42px;
+  font-size: 13px;
+  line-height: 1.5;
+  min-height: 32px;
 }
 
-.meta {
+.meta-row {
   display: flex;
-  flex-direction: column;
-  gap: 8px;
+  align-items: center;
+  gap: 12px;
   font-size: 12px;
   color: #64748b;
 }
 
-.author {
-  display: flex;
-  justify-content: space-between;
-}
-
 .author-name {
-  font-weight: 600;
-  color: #334155;
+  font-weight: 500;
+  color: #475569;
 }
 
 .stats {
   display: flex;
   gap: 12px;
+  font-size: 12px;
+  color: #64748b;
+}
+
+@media (max-width: 720px) {
+  .community-card {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .card-media {
+    width: 100%;
+    justify-content: flex-start;
+  }
 }
 </style>
