@@ -224,7 +224,7 @@ const handleUnpublish = async (item) => {
     status: 1
   })
   message.success('已下架，已转为草稿')
-  await loadData()
+  router.push({ path: '/community' })
 }
 
 const loadData = async () => {
