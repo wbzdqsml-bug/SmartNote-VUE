@@ -34,6 +34,7 @@
         <span class="author-name">{{ item.authorName || '匿名创作者' }}</span>
         <span class="time">{{ formatTime(item.publishedAt) }}</span>
       </div>
+      <p class="excerpt">{{ item.authorName || '匿名创作者' }}</p>
       <div class="stats">
         <span>👀 {{ item.viewCount ?? 0 }}</span>
         <span>❤️ {{ item.likeCount ?? 0 }}</span>
@@ -62,6 +63,110 @@ const resolveTypeLabel = (value) => {
   if (value === 2 || value === 'Template' || value === 'TEMPLATE') return '模板'
   if (value === 3 || value === 'RichText' || value === 'RICH_TEXT') return '富文本'
   return String(value)
+}
+
+const resolveContentText = (content) => {
+  if (!content) return ''
+  if (typeof content === 'string') {
+    const trimmed = content.trim()
+    if (trimmed.startsWith('{') || trimmed.startsWith('[')) {
+      try {
+        const parsed = JSON.parse(trimmed)
+        if (parsed && typeof parsed === 'object') {
+          return parsed.md ?? parsed.markdown ?? parsed.html ?? parsed.content ?? trimmed
+        }
+      } catch (error) {
+        return content
+      }
+    }
+    return content
+  }
+  if (typeof content === 'object') {
+    return content.md ?? content.markdown ?? content.html ?? content.content ?? JSON.stringify(content)
+  }
+  return String(content)
+}
+
+const findImageUrl = (value) => {
+  if (!value) return ''
+  if (typeof value === 'string') {
+    const htmlMatch = value.match(/<img[^>]+src=["']([^"']+)["']/i)
+    if (htmlMatch?.[1]) return htmlMatch[1]
+    const markdownMatch = value.match(/!\[[^\]]*]\(([^)]+)\)/)
+    if (markdownMatch?.[1]) return markdownMatch[1]
+    const jsonMatch = value.match(/"src"\s*:\s*"([^"]+)"/i)
+    return jsonMatch?.[1] || ''
+  }
+  if (Array.isArray(value)) {
+    for (const item of value) {
+      const found = findImageUrl(item)
+      if (found) return found
+    }
+  }
+  if (typeof value === 'object') {
+    const direct =
+      value.src ||
+      value.url ||
+      value.image ||
+      value.thumbnail ||
+      value.thumb ||
+      value.fileUrl ||
+      value.previewUrl
+    if (typeof direct === 'string' && direct.startsWith('http')) return direct
+    for (const key of Object.keys(value)) {
+      const found = findImageUrl(value[key])
+      if (found) return found
+    }
+  }
+  return ''
+}
+
+const resolveThumbnailUrl = (content) => {
+  if (!content) return ''
+  if (typeof content === 'string') {
+    const trimmed = content.trim()
+    if (trimmed.startsWith('{') || trimmed.startsWith('[')) {
+      try {
+        const parsed = JSON.parse(trimmed)
+        const found = findImageUrl(parsed)
+        if (found) return found
+      } catch (error) {
+        return findImageUrl(content)
+      }
+    }
+  }
+  const raw = resolveContentText(content)
+  const found = findImageUrl(raw)
+  return found || ''
+}
+
+const extractText = (value, parts = []) => {
+  if (!value) return parts
+  if (typeof value === 'string') {
+    if (value.startsWith('http')) return parts
+    parts.push(value)
+    return parts
+  }
+  if (Array.isArray(value)) {
+    value.forEach((item) => extractText(item, parts))
+    return parts
+  }
+  if (typeof value === 'object') {
+    if (Array.isArray(value.ops)) {
+      value.ops.forEach((op) => extractText(op, parts))
+      return parts
+    }
+    if (value.insert) {
+      extractText(value.insert, parts)
+    }
+    if (Array.isArray(value.children)) {
+      value.children.forEach((child) => extractText(child, parts))
+    }
+    const textValue = value.text || value.title || value.content || value.markdown || value.md
+    if (typeof textValue === 'string') parts.push(textValue)
+    Object.keys(value).forEach((key) => extractText(value[key], parts))
+  }
+  return parts
 }
 
 const resolveContentText = (content) => {
