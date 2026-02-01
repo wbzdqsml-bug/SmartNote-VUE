@@ -34,6 +34,7 @@
         <span class="author-name">{{ item.authorName || '匿名创作者' }}</span>
         <span class="time">{{ formatTime(item.publishedAt) }}</span>
       </div>
+      <p class="excerpt">{{ item.authorName || '匿名创作者' }}</p>
       <div class="stats">
         <span>👀 {{ item.viewCount ?? 0 }}</span>
         <span>❤️ {{ item.likeCount ?? 0 }}</span>
