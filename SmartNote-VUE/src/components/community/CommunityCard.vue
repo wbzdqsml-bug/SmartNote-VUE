@@ -87,17 +87,47 @@ const resolveStatusClass = (value) => {
   return 'success'
 }
 
-const resolveThumbnailUrl = (content) => {
+const resolveContentText = (content) => {
   if (!content) return ''
-  const raw = typeof content === 'string' ? content : JSON.stringify(content)
-  const match = raw.match(/<img[^>]+src=["']([^"']+)["']/i)
-  return match?.[1] || ''
+  if (typeof content === 'string') {
+    const trimmed = content.trim()
+    if (trimmed.startsWith('{') || trimmed.startsWith('[')) {
+      try {
+        const parsed = JSON.parse(trimmed)
+        if (parsed && typeof parsed === 'object') {
+          return parsed.md ?? parsed.markdown ?? parsed.html ?? parsed.content ?? trimmed
+        }
+      } catch (error) {
+        return content
+      }
+    }
+    return content
+  }
+  if (typeof content === 'object') {
+    return content.md ?? content.markdown ?? content.html ?? content.content ?? JSON.stringify(content)
+  }
+  return String(content)
+}
+
+const resolveThumbnailUrl = (content) => {
+  const raw = resolveContentText(content)
+  if (!raw) return ''
+  const htmlMatch = raw.match(/<img[^>]+src=["']([^"']+)["']/i)
+  if (htmlMatch?.[1]) return htmlMatch[1]
+  const markdownMatch = raw.match(/!\[[^\]]*]\(([^)]+)\)/)
+  if (markdownMatch?.[1]) return markdownMatch[1]
+  const jsonMatch = raw.match(/"src"\s*:\s*"([^"]+)"/i)
+  return jsonMatch?.[1] || ''
 }
 
 const renderExcerpt = (content) => {
-  if (!content) return '暂无内容摘要'
-  const raw = typeof content === 'string' ? content : JSON.stringify(content)
-  return raw.replace(/<[^>]*>/g, '').slice(0, 140)
+  const raw = resolveContentText(content)
+  if (!raw) return '暂无内容摘要'
+  const withoutImages = raw.replace(/!\[[^\]]*]\([^)]+\)/g, '')
+  const withoutLinks = withoutImages.replace(/\[[^\]]*]\([^)]+\)/g, '')
+  const withoutHtml = withoutLinks.replace(/<[^>]*>/g, '')
+  const trimmed = withoutHtml.replace(/\s+/g, ' ').trim()
+  return trimmed ? trimmed.slice(0, 140) : '暂无内容摘要'
 }
 
 const formatTime = (value) => {
