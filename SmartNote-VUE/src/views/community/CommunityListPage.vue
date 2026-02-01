@@ -26,7 +26,7 @@
       </div>
     </header>
 
-    <section class="masonry">
+    <section class="community-list">
       <community-card
         v-for="item in items"
         :key="item.id"
@@ -113,8 +113,10 @@ const contentTypeOptions = [
 
 const normalizeItem = (raw) => ({
   id: raw.id ?? raw.Id,
+  noteId: raw.noteId ?? raw.NoteId,
   title: raw.title ?? raw.Title,
-  contentJson: raw.contentJson ?? raw.ContentJson,
+  contentJson:
+    raw.contentSnapshotJson ?? raw.ContentSnapshotJson ?? raw.contentJson ?? raw.ContentJson,
   contentType: raw.contentType ?? raw.ContentType,
   status: raw.status ?? raw.Status,
   authorName: raw.authorName ?? raw.AuthorName,
@@ -177,6 +179,13 @@ const resolveNotePayload = (noteId) => {
   }
 }
 
+const findExistingContentByNoteId = async (noteId) => {
+  const data = await communityApi.mine({ page: 1, pageSize: 100 })
+  const list = data?.items ?? data?.list ?? data?.data ?? data ?? []
+  const normalized = Array.isArray(list) ? list.map(normalizeItem) : []
+  return normalized.find((item) => item.noteId === noteId) || null
+}
+
 const confirmPublish = async () => {
   if (!publishForm.value.noteId) return
   const payload = resolveNotePayload(publishForm.value.noteId)
@@ -186,12 +195,23 @@ const confirmPublish = async () => {
   }
   const titleSnapshot = publishForm.value.titleSnapshot?.trim()
   const contentSnapshot = publishForm.value.contentSnapshot
-  await communityApi.publish({
-    NoteId: payload.NoteId,
-    ContentType: payload.ContentType,
-    TitleSnapshot: titleSnapshot || null,
-    ContentSnapshotJson: contentSnapshot || null
-  })
+  try {
+    await communityApi.publish({
+      NoteId: payload.NoteId,
+      ContentType: payload.ContentType,
+      TitleSnapshot: titleSnapshot || null,
+      ContentSnapshotJson: contentSnapshot || null
+    })
+  } catch (error) {
+    if (error?.response?.status !== 400) throw error
+    const existing = await findExistingContentByNoteId(payload.NoteId)
+    if (!existing?.id) throw error
+    await communityApi.updateStatus({
+      publicContentId: existing.id,
+      status: 2
+    })
+    message.success('已重新发布')
+  }
   publishModalVisible.value = false
   await loadData()
 }
@@ -240,42 +260,43 @@ onMounted(loadData)
 }
 
 .hero {
-  background: linear-gradient(120deg, #dbeafe 0%, #fef3c7 50%, #fce7f3 100%);
-  border-radius: 24px;
-  padding: 24px;
+  background: #f8fafc;
+  border-radius: 12px;
+  padding: 20px;
   display: flex;
   flex-direction: column;
   gap: 16px;
-  box-shadow: 0 16px 32px rgba(15, 23, 42, 0.12);
+  border: 1px solid #e2e8f0;
 }
 
 .hero-text h1 {
   margin: 0;
-  font-size: 28px;
+  font-size: 26px;
   color: #0f172a;
 }
 
 .hero-text p {
   margin: 6px 0 0;
-  color: #475569;
+  color: #64748b;
 }
 
 .hero-actions {
   display: grid;
-  grid-template-columns: 1fr 180px 140px 140px;
-  gap: 12px;
+  grid-template-columns: 1fr 180px auto auto;
+  gap: 10px;
+  align-items: center;
 }
 
-.masonry {
-  column-count: 3;
-  column-gap: 18px;
+.community-list {
+  display: grid;
+  gap: 16px;
 }
 
 .empty {
-  padding: 24px;
-  border-radius: 18px;
-  background: rgba(59, 130, 246, 0.12);
-  color: #2563eb;
+  padding: 20px;
+  border-radius: 12px;
+  border: 1px dashed #cbd5f5;
+  color: #64748b;
   text-align: center;
 }
 
@@ -293,18 +314,12 @@ onMounted(loadData)
 }
 
 @media (max-width: 1200px) {
-  .masonry {
-    column-count: 2;
-  }
   .hero-actions {
     grid-template-columns: 1fr 1fr;
   }
 }
 
 @media (max-width: 720px) {
-  .masonry {
-    column-count: 1;
-  }
   .hero-actions {
     grid-template-columns: 1fr;
   }
