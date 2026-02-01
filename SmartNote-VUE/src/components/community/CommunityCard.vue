@@ -174,6 +174,16 @@ const extractText = (value, parts = []) => {
     return parts
   }
   if (typeof value === 'object') {
+    if (Array.isArray(value.ops)) {
+      value.ops.forEach((op) => extractText(op, parts))
+      return parts
+    }
+    if (value.insert) {
+      extractText(value.insert, parts)
+    }
+    if (Array.isArray(value.children)) {
+      value.children.forEach((child) => extractText(child, parts))
+    }
     const textValue = value.text || value.title || value.content || value.markdown || value.md
     if (typeof textValue === 'string') parts.push(textValue)
     Object.keys(value).forEach((key) => extractText(value[key], parts))
@@ -184,6 +194,10 @@ const extractText = (value, parts = []) => {
 const renderExcerpt = (content) => {
   if (!content) return '暂无内容摘要'
   let raw = resolveContentText(content)
+  if (typeof content === 'object') {
+    const collected = extractText(content).join(' ')
+    if (collected) raw = collected
+  }
   if (typeof content === 'string') {
     const trimmed = content.trim()
     if (trimmed.startsWith('{') || trimmed.startsWith('[')) {
