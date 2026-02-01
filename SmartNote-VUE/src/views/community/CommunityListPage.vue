@@ -140,7 +140,8 @@ const normalizeItem = (raw) => ({
   publishedAt: raw.publishedAt ?? raw.PublishedAt,
   viewCount: raw.viewCount ?? raw.ViewCount,
   likeCount: raw.likeCount ?? raw.LikeCount,
-  favoriteCount: raw.favoriteCount ?? raw.FavoriteCount
+  favoriteCount: raw.favoriteCount ?? raw.FavoriteCount,
+  commentCount: raw.commentCount ?? raw.CommentCount ?? raw.commentTotal ?? raw.CommentTotal
 })
 
 const resolveNotesResponse = (response) => {
