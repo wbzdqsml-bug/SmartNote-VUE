@@ -7,24 +7,33 @@
 -->
 <template>
   <article class="community-card" @click="$emit('open', item)">
-    <div class="card-header">
-      <div class="title-group">
-        <span class="type-chip">{{ resolveTypeLabel(item.contentType) }}</span>
-        <h3 class="title">{{ item.title || '未命名内容' }}</h3>
+    <div class="card-media">
+      <div class="thumbnail">
+        <div class="thumbnail-inner">
+          <span class="thumbnail-label">PDF</span>
+        </div>
       </div>
-      <span class="status-chip" :class="resolveStatusClass(item.status)">
-        {{ resolveStatusLabel(item.status) }}
-      </span>
     </div>
-    <div class="meta-row">
-      <span class="author-name">{{ item.authorName || '匿名创作者' }}</span>
-      <span class="time">{{ formatTime(item.publishedAt) }}</span>
-    </div>
-    <p class="excerpt">{{ renderExcerpt(item.contentJson) }}</p>
-    <div class="stats">
-      <span>👀 {{ item.viewCount ?? 0 }}</span>
-      <span>❤️ {{ item.likeCount ?? 0 }}</span>
-      <span>⭐ {{ item.favoriteCount ?? 0 }}</span>
+    <div class="card-body">
+      <div class="card-header">
+        <div class="title-group">
+          <h3 class="title">{{ item.title || '未命名内容' }}</h3>
+          <span class="type-chip">{{ resolveTypeLabel(item.contentType) }}</span>
+        </div>
+        <span class="status-chip" :class="resolveStatusClass(item.status)">
+          {{ resolveStatusLabel(item.status) }}
+        </span>
+      </div>
+      <div class="meta-row">
+        <span class="author-name">{{ item.authorName || '匿名创作者' }}</span>
+        <span class="time">{{ formatTime(item.publishedAt) }}</span>
+      </div>
+      <p class="excerpt">{{ renderExcerpt(item.contentJson) }}</p>
+      <div class="stats">
+        <span>👀 {{ item.viewCount ?? 0 }}</span>
+        <span>❤️ {{ item.likeCount ?? 0 }}</span>
+        <span>⭐ {{ item.favoriteCount ?? 0 }}</span>
+      </div>
     </div>
   </article>
 </template>
@@ -88,32 +97,79 @@ const formatTime = (value) => {
 <style scoped>
 .community-card {
   background: #ffffff;
-  border-radius: 12px;
-  padding: 16px;
-  border: 1px solid #e2e8f0;
+  border-radius: 18px;
+  padding: 16px 20px;
+  border: 1px solid #e5e7eb;
   cursor: pointer;
-  transition: box-shadow 0.2s ease, border-color 0.2s ease;
-  display: block;
+  transition: box-shadow 0.2s ease, border-color 0.2s ease, transform 0.2s ease;
+  display: flex;
+  gap: 18px;
+  align-items: center;
   width: 100%;
 }
 
 .community-card:hover {
-  border-color: #cbd5f5;
-  box-shadow: 0 8px 18px rgba(15, 23, 42, 0.08);
+  border-color: #d1d5db;
+  box-shadow: 0 12px 24px rgba(15, 23, 42, 0.08);
+  transform: translateY(-1px);
+}
+
+.card-media {
+  flex: 0 0 96px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.thumbnail {
+  width: 96px;
+  height: 96px;
+  border-radius: 16px;
+  background: #f1f5f9;
+  border: 1px solid #e2e8f0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.thumbnail-inner {
+  width: 62px;
+  height: 74px;
+  border-radius: 10px;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #64748b;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.thumbnail-label {
+  letter-spacing: 0.08em;
+}
+
+.card-body {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
 }
 
 .card-header {
   display: flex;
   justify-content: space-between;
-  align-items: flex-start;
-  gap: 12px;
-  margin-bottom: 8px;
+  align-items: center;
+  gap: 16px;
 }
 
 .title-group {
   display: flex;
-  flex-direction: column;
-  gap: 6px;
+  flex-direction: row;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
 }
 
 .type-chip,
@@ -143,16 +199,17 @@ const formatTime = (value) => {
 
 .title {
   margin: 0;
-  font-size: 17px;
+  font-size: 20px;
+  font-weight: 700;
   color: #0f172a;
 }
 
 .excerpt {
-  margin: 0 0 12px;
-  color: #4b5563;
-  font-size: 14px;
-  line-height: 1.55;
-  min-height: 36px;
+  margin: 0;
+  color: #6b7280;
+  font-size: 13px;
+  line-height: 1.5;
+  min-height: 32px;
 }
 
 .meta-row {
@@ -161,7 +218,6 @@ const formatTime = (value) => {
   gap: 12px;
   font-size: 12px;
   color: #64748b;
-  margin-bottom: 8px;
 }
 
 .author-name {
@@ -174,5 +230,17 @@ const formatTime = (value) => {
   gap: 12px;
   font-size: 12px;
   color: #64748b;
+}
+
+@media (max-width: 720px) {
+  .community-card {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .card-media {
+    width: 100%;
+    justify-content: flex-start;
+  }
 }
 </style>
