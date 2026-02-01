@@ -19,12 +19,20 @@
     </header>
 
     <section class="list">
-      <community-card
-        v-for="item in items"
-        :key="item.id"
-        :item="normalizeItem(item)"
-        @open="openDetail"
-      />
+      <div v-for="item in normalizedItems" :key="item.id" class="list-item">
+        <community-card :item="item" @open="openDetail" />
+        <div class="item-actions">
+          <n-button
+            v-if="canUnpublish(item)"
+            size="small"
+            type="warning"
+            secondary
+            @click.stop="handleUnpublish(item)"
+          >
+            下架
+          </n-button>
+        </div>
+      </div>
       <div v-if="!items.length && !loading" class="empty">暂无发布内容</div>
     </section>
 
@@ -69,7 +77,7 @@
 </template>
 
 <script setup>
-import { onMounted, ref, watch } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { NSelect, NPagination, NButton, NModal, NForm, NFormItem, NInput, useMessage } from 'naive-ui'
 import { useRouter } from 'vue-router'
 import communityApi from '@/api/community'
@@ -96,15 +104,25 @@ const publishForm = ref({
 
 const statusOptions = [
   { label: '全部状态', value: null },
-  { label: '草稿', value: 0 },
-  { label: '已发布', value: 1 },
-  { label: '已下架', value: 2 }
+  { label: '私有', value: 0 },
+  { label: '草稿', value: 1 },
+  { label: '已发布', value: 2 },
+  { label: '已下架', value: 3 }
 ]
 
 const normalizeItem = (raw) => ({
   id: raw.id ?? raw.Id,
+  noteId: raw.noteId ?? raw.NoteId,
   title: raw.title ?? raw.Title,
-  contentJson: raw.contentJson ?? raw.ContentJson,
+  contentJson:
+    raw.contentSnapshotJson ??
+    raw.ContentSnapshotJson ??
+    raw.contentSnapshot ??
+    raw.ContentSnapshot ??
+    raw.contentJson ??
+    raw.ContentJson ??
+    raw.content ??
+    raw.Content,
   contentType: raw.contentType ?? raw.ContentType,
   status: raw.status ?? raw.Status,
   authorName: raw.authorName ?? raw.AuthorName,
@@ -114,6 +132,10 @@ const normalizeItem = (raw) => ({
   favoriteCount: raw.favoriteCount ?? raw.FavoriteCount
 })
 
+const normalizedItems = computed(() => items.value.map((item) => normalizeItem(item)))
+
+const canUnpublish = (item) => item.status === 2 || item.status === 'Published'
+
 const resolveNotesResponse = (response) => {
   if (!response) return []
   const payload = response.data ?? response
@@ -121,6 +143,13 @@ const resolveNotesResponse = (response) => {
     return payload.data ?? []
   }
   return payload ?? []
+}
+
+const findExistingContentByNoteId = async (noteId) => {
+  const data = await communityApi.mine({ page: 1, pageSize: 100 })
+  const list = data?.items ?? data?.list ?? data?.data ?? data ?? []
+  const normalized = Array.isArray(list) ? list.map(normalizeItem) : []
+  return normalized.find((item) => item.noteId === noteId) || null
 }
 
 const openDetail = (item) => {
@@ -176,14 +205,34 @@ const confirmPublish = async () => {
   }
   const titleSnapshot = publishForm.value.titleSnapshot?.trim()
   const contentSnapshot = publishForm.value.contentSnapshot
-  await communityApi.publish({
-    NoteId: payload.NoteId,
-    ContentType: payload.ContentType,
-    TitleSnapshot: titleSnapshot || null,
-    ContentSnapshotJson: contentSnapshot || null
-  })
+  try {
+    await communityApi.publish({
+      NoteId: payload.NoteId,
+      ContentType: payload.ContentType,
+      TitleSnapshot: titleSnapshot || null,
+      ContentSnapshotJson: contentSnapshot || null
+    })
+  } catch (error) {
+    if (error?.response?.status !== 400) throw error
+    const existing = await findExistingContentByNoteId(payload.NoteId)
+    if (!existing?.id) throw error
+    await communityApi.updateStatus({
+      publicContentId: existing.id,
+      status: 2
+    })
+    message.success('已重新发布')
+  }
   publishModalVisible.value = false
   await loadData()
+}
+
+const handleUnpublish = async (item) => {
+  await communityApi.updateStatus({
+    publicContentId: item.id,
+    status: 1
+  })
+  message.success('已下架，已转为草稿')
+  router.push({ path: '/community' })
 }
 
 const loadData = async () => {
@@ -263,6 +312,19 @@ onMounted(loadData)
 .list {
   column-count: 3;
   column-gap: 18px;
+}
+
+.list-item {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  break-inside: avoid;
+  margin-bottom: 16px;
+}
+
+.item-actions {
+  display: flex;
+  justify-content: flex-end;
 }
 
 .empty {
